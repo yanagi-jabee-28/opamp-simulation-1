@@ -151,17 +151,16 @@
 					電流の流れを制限する素子です。オームの法則（V = IR）に従い、電圧と電流の関係を決定します。
 				</div>
 				<div class="svg-container">
-					<svg width="200" height="80" viewBox="0 0 200 80">
-						<!-- 配線 -->
-						<line x1="10" y1="40" x2="40" y2="40" stroke="#333" stroke-width="2" />
-						<line x1="160" y1="40" x2="190" y2="40" stroke="#333" stroke-width="2" />
+					<svg width="200" height="80" viewBox="0 0 200 80"> <!-- 配線 -->
+						<line x1="10" y1="40" x2="50" y2="40" stroke="#333" stroke-width="2" />
+						<line x1="150" y1="40" x2="190" y2="40" stroke="#333" stroke-width="2" />
 
 						<!-- 抵抗器本体 -->
-						<rect x="40" y="25" width="120" height="30" fill="none" stroke="#333" stroke-width="2" />
+						<rect x="50" y="25" width="100" height="30" fill="none" stroke="#333" stroke-width="2" />
 
 						<!-- ジグザグパターン -->
-						<path d="M50 40 L60 30 L70 50 L80 30 L90 50 L100 30 L110 50 L120 30 L130 50 L140 30 L150 40"
-							fill="none" stroke="#e74c3c" stroke-width="3" />
+						<path d="M60 40 L70 30 L80 50 L90 30 L100 50 L110 30 L120 50 L130 30 L140 40" fill="none"
+							stroke="#e74c3c" stroke-width="3" />
 
 						<!-- 端子 -->
 						<circle cx="10" cy="40" r="3" fill="#333" />
@@ -181,12 +180,13 @@
 					磁気エネルギーを蓄える素子です。電流の変化に対して逆起電力を発生し、交流に対してインピーダンスを示します。
 				</div>
 				<div class="svg-container">
-					<svg width="200" height="80" viewBox="0 0 200 80">
-						<!-- 配線 -->
-						<line x1="10" y1="40" x2="40" y2="40" stroke="#333" stroke-width="2" />
-						<line x1="160" y1="40" x2="190" y2="40" stroke="#333" stroke-width="2" /> <!-- コイル -->
+					<svg width="200" height="80" viewBox="0 0 200 80"> <!-- 配線 -->
+						<line x1="10" y1="40" x2="50" y2="40" stroke="#333" stroke-width="2" />
+						<line x1="150" y1="40" x2="190" y2="40" stroke="#333" stroke-width="2" />
+
+						<!-- コイル -->
 						<path
-							d="M40 40 C40 25, 60 25, 60 40 C60 25, 80 25, 80 40 C80 25, 100 25, 100 40 C100 25, 120 25, 120 40 C120 25, 140 25, 140 40 C140 25, 160 25, 160 40"
+							d="M50 40 A12.5 12.5 0 0 0 75 40 A12.5 12.5 0 0 0 100 40 A12.5 12.5 0 0 0 125 40 A12.5 12.5 0 0 0 150 40"
 							fill="none" stroke="#2ecc71" stroke-width="3" />
 
 						<!-- 端子 -->
@@ -207,8 +207,7 @@
 					電荷を蓄える素子です。直流を通さず交流を通し、電圧の急激な変化を抑制する働きがあります。
 				</div>
 				<div class="svg-container">
-					<svg width="200" height="80" viewBox="0 0 200 80">
-						<!-- 配線 -->
+					<svg width="200" height="80" viewBox="0 0 200 80"> <!-- 配線 -->
 						<line x1="10" y1="40" x2="90" y2="40" stroke="#333" stroke-width="2" />
 						<line x1="110" y1="40" x2="190" y2="40" stroke="#333" stroke-width="2" />
 
@@ -253,9 +252,9 @@
 						<text x="140" y="35" text-anchor="middle" font-size="10" fill="#333">R</text>
 					</g> <!-- インダクタ -->
 					<g id="demo-inductor">
-						<path d="M180 50 C180 42, 195 42, 195 50 C195 42, 210 42, 210 50 C210 42, 225 42, 225 50"
+						<path d="M180 50 A6 6 0 0 0 192 50 A6 6 0 0 0 204 50 A6 6 0 0 0 216 50 A6 6 0 0 0 228 50"
 							fill="none" stroke="#2ecc71" stroke-width="2" />
-						<text x="202" y="35" text-anchor="middle" font-size="10" fill="#333">L</text>
+						<text x="204" y="35" text-anchor="middle" font-size="10" fill="#333">L</text>
 					</g>
 
 					<!-- コンデンサ -->
