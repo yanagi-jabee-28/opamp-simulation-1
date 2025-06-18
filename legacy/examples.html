@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>回路部品ライブラリ使用例</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			margin: 20px;
+			background: #f5f5f5;
+		}
+
+		.example-section {
+			background: white;
+			margin: 20px 0;
+			padding: 25px;
+			border-radius: 10px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+
+		h1,
+		h2 {
+			color: #2c3e50;
+		}
+
+		.circuit-canvas {
+			border: 2px solid #ddd;
+			border-radius: 8px;
+			background: white;
+			margin: 15px 0;
+		}
+
+		pre {
+			background: #f8f9fa;
+			padding: 15px;
+			border-radius: 8px;
+			border-left: 4px solid #3498db;
+			overflow-x: auto;
+		}
+
+		button {
+			background: #3498db;
+			color: white;
+			border: none;
+			padding: 10px 15px;
+			border-radius: 5px;
+			cursor: pointer;
+			margin: 5px;
+		}
+
+		button:hover {
+			background: #2980b9;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>電子回路部品ライブラリ 使用例</h1>
+
+	<div class="example-section">
+		<h2>基本的な使用方法</h2>
+		<p>以下のコードで簡単に回路部品を作成できます：</p>
+
+		<pre><code>// SVGキャンバスの準備
+const svg = document.getElementById('mySvg');
+const circuit = new CircuitComponents.CircuitDiagram(svg);
+
+// 抵抗器を追加 (x=100, y=100, 回転=0度, 値="1kΩ")
+const resistor = new CircuitComponents.Resistor(100, 100, 0, "1kΩ");
+circuit.addComponent(resistor, "R1");
+
+// インダクタを追加
+const inductor = new CircuitComponents.Inductor(300, 100, 0, "10mH");
+circuit.addComponent(inductor, "L1");
+
+// コンデンサを追加
+const capacitor = new CircuitComponents.Capacitor(500, 100, 0, "100μF");
+circuit.addComponent(capacitor, "C1");</code></pre>
+
+		<button onclick="createBasicExample()">実行</button>
+		<svg id="basicExample" class="circuit-canvas" width="700" height="200" viewBox="0 0 700 200"></svg>
+	</div>
+
+	<div class="example-section">
+		<h2>回転した部品の例</h2>
+		<p>部品を回転させることもできます：</p>
+
+		<pre><code>// 90度回転した部品を作成
+const rotatedResistor = new CircuitComponents.Resistor(100, 150, 90, "2.2kΩ");
+const rotatedInductor = new CircuitComponents.Inductor(200, 150, 90, "47μH");
+const rotatedCapacitor = new CircuitComponents.Capacitor(300, 150, 90, "220μF");</code></pre>
+
+		<button onclick="createRotatedExample()">実行</button>
+		<svg id="rotatedExample" class="circuit-canvas" width="500" height="300" viewBox="0 0 500 300"></svg>
+	</div>
+
+	<div class="example-section">
+		<h2>RLC直列回路の例</h2>
+		<p>複数の部品を組み合わせて回路を作成：</p>
+
+		<pre><code>// RLC直列回路
+const circuit = new CircuitComponents.CircuitDiagram(svg);
+
+// 部品を配置
+const R = new CircuitComponents.Resistor(100, 100, 0, "1kΩ");
+const L = new CircuitComponents.Inductor(350, 100, 0, "10mH");
+const C = new CircuitComponents.Capacitor(600, 100, 0, "100nF");
+
+// 接続線を追加
+circuit.addWire(280, 100, 350, 100); // R-L間
+circuit.addWire(630, 100, 700, 100); // L-C間
+circuit.addWire(100, 200, 700, 200); // 下側の線
+circuit.addWire(100, 100, 100, 200); // 左側の線
+circuit.addWire(700, 100, 700, 200); // 右側の線</code></pre>
+
+		<button onclick="createRLCExample()">実行</button>
+		<svg id="rlcExample" class="circuit-canvas" width="800" height="250" viewBox="0 0 800 250"></svg>
+	</div>
+
+	<div class="example-section">
+		<h2>部品ライブラリの保存・読み込み</h2>
+		<p>部品の設定を保存して再利用できます：</p>
+
+		<pre><code>// ライブラリを作成
+const library = new CircuitComponents.ComponentLibrary();
+
+// 部品を保存
+const myResistor = new CircuitComponents.Resistor(0, 0, 0, "10kΩ");
+library.saveComponent("標準抵抗", myResistor);
+
+// 保存した部品を読み込み
+const loadedComponent = library.loadComponent("標準抵抗");
+loadedComponent.x = 200;
+loadedComponent.y = 100;
+circuit.addComponent(loadedComponent);</code></pre>
+
+		<button onclick="demonstrateLibrary()">ライブラリデモ</button>
+		<div id="libraryDemo"></div>
+	</div>
+
+	<div class="example-section">
+		<h2>動的な回路作成</h2>
+		<p>プログラムで動的に回路を生成：</p>
+
+		<button onclick="createDynamicCircuit()">ランダム回路生成</button>
+		<svg id="dynamicExample" class="circuit-canvas" width="800" height="300" viewBox="0 0 800 300"></svg>
+	</div>
+
+	<script src="circuit-components.js"></script>
+	<script>
+		function createBasicExample() {
+			const svg = document.getElementById('basicExample');
+			svg.innerHTML = '';
+
+			const circuit = new CircuitComponents.CircuitDiagram(svg);
+
+			const resistor = new CircuitComponents.Resistor(100, 100, 0, "1kΩ");
+			circuit.addComponent(resistor, "R1");
+
+			const inductor = new CircuitComponents.Inductor(300, 100, 0, "10mH");
+			circuit.addComponent(inductor, "L1");
+
+			const capacitor = new CircuitComponents.Capacitor(500, 100, 0, "100μF");
+			circuit.addComponent(capacitor, "C1");
+		}
+
+		function createRotatedExample() {
+			const svg = document.getElementById('rotatedExample');
+			svg.innerHTML = '';
+
+			const circuit = new CircuitComponents.CircuitDiagram(svg);
+
+			const rotatedResistor = new CircuitComponents.Resistor(100, 150, 90, "2.2kΩ");
+			circuit.addComponent(rotatedResistor, "R_rot");
+
+			const rotatedInductor = new CircuitComponents.Inductor(200, 150, 90, "47μH");
+			circuit.addComponent(rotatedInductor, "L_rot");
+
+			const rotatedCapacitor = new CircuitComponents.Capacitor(300, 150, 90, "220μF");
+			circuit.addComponent(rotatedCapacitor, "C_rot");
+		}
+
+		function createRLCExample() {
+			const svg = document.getElementById('rlcExample');
+			svg.innerHTML = '';
+
+			const circuit = new CircuitComponents.CircuitDiagram(svg);
+
+			// 部品を配置
+			const R = new CircuitComponents.Resistor(100, 100, 0, "1kΩ");
+			circuit.addComponent(R, "R1");
+
+			const L = new CircuitComponents.Inductor(350, 100, 0, "10mH");
+			circuit.addComponent(L, "L1");
+
+			const C = new CircuitComponents.Capacitor(600, 100, 0, "100nF");
+			circuit.addComponent(C, "C1");
+
+			// 接続線を追加
+			circuit.addWire(280, 100, 350, 100); // R-L間
+			circuit.addWire(630, 100, 700, 100); // L-C間
+			circuit.addWire(100, 200, 700, 200); // 下側の線
+			circuit.addWire(100, 100, 100, 200); // 左側の線
+			circuit.addWire(700, 100, 700, 200); // 右側の線
+		}
+
+		function demonstrateLibrary() {
+			const library = new CircuitComponents.ComponentLibrary();
+
+			// 部品を保存
+			const myResistor = new CircuitComponents.Resistor(0, 0, 0, "10kΩ");
+			library.saveComponent("標準抵抗", myResistor);
+
+			const myInductor = new CircuitComponents.Inductor(0, 0, 0, "1mH");
+			library.saveComponent("標準インダクタ", myInductor);
+
+			// 保存されたデータを表示
+			const demo = document.getElementById('libraryDemo');
+			demo.innerHTML = `
+                <h4>保存された部品:</h4>
+                <pre>${library.exportComponents()}</pre>
+                <p>保存された部品リスト: ${library.listComponents().join(', ')}</p>
+            `;
+		}
+
+		function createDynamicCircuit() {
+			const svg = document.getElementById('dynamicExample');
+			svg.innerHTML = '';
+
+			const circuit = new CircuitComponents.CircuitDiagram(svg);
+
+			// ランダムに部品を配置
+			const components = ['Resistor', 'Inductor', 'Capacitor'];
+			const values = ['100Ω', '1kΩ', '10kΩ', '1mH', '10mH', '100μF', '1μF'];
+
+			for (let i = 0; i < 6; i++) {
+				const x = 50 + (i % 3) * 250;
+				const y = 80 + Math.floor(i / 3) * 120;
+				const rotation = Math.random() > 0.5 ? 0 : 90;
+				const compType = components[Math.floor(Math.random() * components.length)];
+				const value = values[Math.floor(Math.random() * values.length)];
+
+				let component;
+				switch (compType) {
+					case 'Resistor':
+						component = new CircuitComponents.Resistor(x, y, rotation, value);
+						break;
+					case 'Inductor':
+						component = new CircuitComponents.Inductor(x, y, rotation, value);
+						break;
+					case 'Capacitor':
+						component = new CircuitComponents.Capacitor(x, y, rotation, value);
+						break;
+				}
+
+				circuit.addComponent(component, `comp_${i}`);
+			}
+		}
+
+		// 初期表示
+		document.addEventListener('DOMContentLoaded', function () {
+			createBasicExample();
+		});
+	</script>
+</body>
+
+</html>
