@@ -25,12 +25,15 @@ export interface SVGElementProps {
 	width?: string | number;
 	height?: string | number;
 	d?: string;
+	points?: string;
 	stroke?: string;
 	'stroke-width'?: string | number;
+	'stroke-dasharray'?: string;
 	fill?: string;
 	'text-anchor'?: string;
 	'font-family'?: string;
 	'font-size'?: string | number;
+	'font-weight'?: string;
 	transform?: string;
 	id?: string;
 }
@@ -404,7 +407,6 @@ export class ComponentLibrary {
 	public loadComponent(name: string): CircuitComponent | null {
 		const data = this.savedComponents[name];
 		if (!data) return null;
-
 		switch (data.type) {
 			case 'Resistor':
 				return new Resistor(data.x, data.y, data.rotation, data.value);
@@ -412,6 +414,10 @@ export class ComponentLibrary {
 				return new Inductor(data.x, data.y, data.rotation, data.value);
 			case 'Capacitor':
 				return new Capacitor(data.x, data.y, data.rotation, data.value);
+			case 'CMOSN':
+				return new CMOSN(data.x, data.y, data.rotation, data.value);
+			case 'CMOSP':
+				return new CMOSP(data.x, data.y, data.rotation, data.value);
 			default:
 				return null;
 		}
@@ -453,5 +459,240 @@ export class ComponentLibrary {
 
 	public get components(): Record<string, ComponentData> {
 		return { ...this.savedComponents };
+	}
+}
+
+// MOSトランジスタの基底クラス (極めてシンプルなシンボル)
+export abstract class MOSTransistor extends CircuitComponent {
+	public transistorType: 'NMOS' | 'PMOS';
+
+	constructor(x: number = 0, y: number = 0, rotation: number = 0, transistorType: 'NMOS' | 'PMOS' = 'NMOS', value?: string) {
+		super(x, y, rotation, value);
+		this.width = 50;
+		this.height = 50;
+		this.terminalLength = 20;
+		this.transistorType = transistorType;
+	}
+
+	protected drawBasicStructure(group: SVGGElement): void {
+		// メインの縦線（チャネル）
+		const verticalLine = this.createElement('line', {
+			x1: 0,
+			y1: -20,
+			x2: 0,
+			y2: 20,
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(verticalLine);
+
+		// ゲート（水平線）
+		const gateLine = this.createElement('line', {
+			x1: -15,
+			y1: 0,
+			x2: -5,
+			y2: 0,
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(gateLine);
+
+		// ゲート端子線
+		const gateTerminal = this.createElement('line', {
+			x1: -15 - this.terminalLength,
+			y1: 0,
+			x2: -15,
+			y2: 0,
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(gateTerminal);
+
+		// ドレイン接続線
+		const drainLine = this.createElement('line', {
+			x1: 0,
+			y1: -20,
+			x2: 15,
+			y2: -20,
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(drainLine);
+
+		// ドレイン端子線
+		const drainTerminal = this.createElement('line', {
+			x1: 15,
+			y1: -20,
+			x2: 15,
+			y2: -20 - this.terminalLength,
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(drainTerminal);
+
+		// ソース接続線
+		const sourceLine = this.createElement('line', {
+			x1: 0,
+			y1: 20,
+			x2: 15,
+			y2: 20,
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(sourceLine);
+
+		// ソース端子線
+		const sourceTerminal = this.createElement('line', {
+			x1: 15,
+			y1: 20,
+			x2: 15,
+			y2: 20 + this.terminalLength,
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(sourceTerminal);
+	}
+
+	protected drawLabels(group: SVGGElement): void {
+		// ゲートラベル
+		const gateLabel = this.createElement('text', {
+			x: -15 - this.terminalLength - 5,
+			y: 5,
+			'text-anchor': 'end',
+			'font-family': 'Arial, sans-serif',
+			'font-size': 12,
+			fill: '#000'
+		});
+		gateLabel.textContent = 'G';
+		group.appendChild(gateLabel);
+
+		// ドレインラベル
+		const drainLabel = this.createElement('text', {
+			x: 20,
+			y: -20 - this.terminalLength - 5,
+			'text-anchor': 'start',
+			'font-family': 'Arial, sans-serif',
+			'font-size': 12,
+			fill: '#000'
+		});
+		drainLabel.textContent = 'D';
+		group.appendChild(drainLabel);
+
+		// ソースラベル
+		const sourceLabel = this.createElement('text', {
+			x: 20,
+			y: 20 + this.terminalLength + 15,
+			'text-anchor': 'start',
+			'font-family': 'Arial, sans-serif',
+			'font-size': 12,
+			fill: '#000'
+		});
+		sourceLabel.textContent = 'S';
+		group.appendChild(sourceLabel);
+
+		// 値ラベル
+		if (this.value) {
+			const valueLabel = this.createElement('text', {
+				x: 0,
+				y: 45,
+				'text-anchor': 'middle',
+				'font-family': 'Arial, sans-serif',
+				'font-size': 10,
+				fill: '#666'
+			});
+			valueLabel.textContent = this.value;
+			group.appendChild(valueLabel);
+		}
+	}
+}
+
+// NMOS トランジスタ (極めてシンプルなシンボル)
+export class CMOSN extends MOSTransistor {
+	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string) {
+		super(x, y, rotation, 'NMOS', value);
+	}
+
+	public render(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		const group = this.createGroup(id);
+
+		// 基本構造を描画
+		this.drawBasicStructure(group);
+
+		// NMOS特有の矢印（ソースからドレインへ）
+		const arrow = this.createElement('polygon', {
+			points: '5,0 2,-3 2,3',
+			fill: '#000',
+			stroke: '#000',
+			'stroke-width': 1
+		});
+		group.appendChild(arrow);
+
+		// タイプラベル
+		const typeLabel = this.createElement('text', {
+			x: 0,
+			y: -30,
+			'text-anchor': 'middle',
+			'font-family': 'Arial, sans-serif',
+			'font-size': 10,
+			'font-weight': 'bold',
+			fill: '#000'
+		});
+		typeLabel.textContent = 'NMOS';
+		group.appendChild(typeLabel);
+
+		this.drawLabels(group);
+		parentSvg.appendChild(group);
+		return group;
+	}
+}
+
+// PMOS トランジスタ (極めてシンプルなシンボル)
+export class CMOSP extends MOSTransistor {
+	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string) {
+		super(x, y, rotation, 'PMOS', value);
+	}
+
+	public render(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		const group = this.createGroup(id);
+
+		// 基本構造を描画
+		this.drawBasicStructure(group);
+
+		// PMOS特有のゲートバブル
+		const gateBubble = this.createElement('circle', {
+			cx: -10,
+			cy: 0,
+			r: 3,
+			fill: 'white',
+			stroke: '#000',
+			'stroke-width': 2
+		});
+		group.appendChild(gateBubble);
+
+		// PMOS特有の矢印（ドレインからソースへ、NMOSとは逆向き）
+		const arrow = this.createElement('polygon', {
+			points: '2,0 5,-3 5,3',
+			fill: '#000',
+			stroke: '#000',
+			'stroke-width': 1
+		});
+		group.appendChild(arrow);
+
+		// タイプラベル
+		const typeLabel = this.createElement('text', {
+			x: 0,
+			y: -30,
+			'text-anchor': 'middle',
+			'font-family': 'Arial, sans-serif',
+			'font-size': 10,
+			'font-weight': 'bold',
+			fill: '#000'
+		});
+		typeLabel.textContent = 'PMOS';
+		group.appendChild(typeLabel);
+
+		this.drawLabels(group);
+		parentSvg.appendChild(group);
+		return group;
 	}
 }

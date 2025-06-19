@@ -4,13 +4,16 @@ import {
 	ComponentLibrary,
 	Resistor,
 	Inductor,
-	Capacitor
+	Capacitor,
+	CMOSN,
+	CMOSP
 } from '../lib/circuit-components';
 
 const ExamplesPage: React.FC = () => {
 	const basicExampleRef = useRef<SVGSVGElement>(null);
 	const rotatedExampleRef = useRef<SVGSVGElement>(null);
 	const rlcExampleRef = useRef<SVGSVGElement>(null);
+	const mosExampleRef = useRef<SVGSVGElement>(null);
 	const dynamicExampleRef = useRef<SVGSVGElement>(null);
 
 	const createBasicExample = () => {
@@ -113,8 +116,36 @@ const ExamplesPage: React.FC = () => {
 		return library.exportComponents();
 	};
 
+	const createMOSExample = () => {
+		if (!mosExampleRef.current) return;
+
+		mosExampleRef.current.innerHTML = '';
+		const circuit = new CircuitDiagram(mosExampleRef.current);
+
+		// NMOS トランジスタ
+		const nmos = new CMOSN(150, 100, 0, "M1_N");
+		circuit.addComponent(nmos, "M1");
+
+		// PMOS トランジスタ
+		const pmos = new CMOSP(400, 100, 0, "M2_P");
+		circuit.addComponent(pmos, "M2");
+
+		// CMOS インバータの例（垂直配置）
+		const nmosInv = new CMOSN(600, 150, 0, "M3_N");
+		circuit.addComponent(nmosInv, "M3");
+
+		const pmosInv = new CMOSP(600, 50, 0, "M4_P");
+		circuit.addComponent(pmosInv, "M4");
+
+		// インバータ回路の接続線
+		circuit.addWire(570, 50, 570, 150); // 入力ゲート接続
+		circuit.addWire(600, 35, 600, 20);  // VDD
+		circuit.addWire(600, 165, 600, 180); // VSS
+		circuit.addWire(630, 100, 680, 100); // 出力
+	};
 	useEffect(() => {
 		createBasicExample();
+		createMOSExample();
 	}, []);
 
 	return (
@@ -224,26 +255,6 @@ circuit.addWire(630, 100, 700, 100);`}</code>
 						/>
 					</div>
 
-					{/* 動的な回路作成 */}
-					<div className="bg-white rounded-xl shadow-lg p-8">
-						<h2 className="text-2xl font-bold text-gray-800 mb-4">動的な回路作成</h2>
-						<p className="text-gray-600 mb-4">プログラムで動的に回路を生成：</p>
-
-						<button
-							onClick={createDynamicCircuit}
-							className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-						>
-							ランダム回路生成
-						</button>
-						<svg
-							ref={dynamicExampleRef}
-							className="w-full border-2 border-gray-200 rounded-lg bg-white"
-							width="800"
-							height="300"
-							viewBox="0 0 800 300"
-						/>
-					</div>
-
 					{/* 部品ライブラリの保存・読み込み */}
 					<div className="bg-white rounded-xl shadow-lg p-8">
 						<h2 className="text-2xl font-bold text-gray-800 mb-4">部品ライブラリの保存・読み込み</h2>
@@ -270,6 +281,58 @@ const loadedComponent = library.loadComponent("標準抵抗");`}</code>
 						>
 							ライブラリデモ
 						</button>
+					</div>
+
+					{/* MOSトランジスタの例 */}
+					<div className="bg-white rounded-xl shadow-lg p-8">
+						<h2 className="text-2xl font-bold text-gray-800 mb-4">MOSトランジスタ</h2>
+						<p className="text-gray-600 mb-4">NMOS・PMOSトランジスタとCMOSインバータ回路：</p>
+
+						<pre className="bg-gray-100 p-4 rounded-lg text-sm mb-4 overflow-x-auto">
+							<code>{`// NMOS・PMOSトランジスタの配置
+const nmos = new CMOSN(150, 100, 0, "M1_N");
+const pmos = new CMOSP(400, 100, 0, "M2_P");
+
+// CMOSインバータ回路
+const nmosInv = new CMOSN(600, 150, 0, "M3_N");
+const pmosInv = new CMOSP(600, 50, 0, "M4_P");
+
+// 端子：ゲート(G)、ドレイン(D)、ソース(S)、バルク(B)`}</code>
+						</pre>
+
+						<button
+							onClick={createMOSExample}
+							className="mb-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+						>
+							実行
+						</button>
+						<svg
+							ref={mosExampleRef}
+							className="w-full border-2 border-gray-200 rounded-lg bg-white"
+							width="800"
+							height="200"
+							viewBox="0 0 800 200"
+						/>
+					</div>
+
+					{/* 動的な回路作成 */}
+					<div className="bg-white rounded-xl shadow-lg p-8">
+						<h2 className="text-2xl font-bold text-gray-800 mb-4">動的な回路作成</h2>
+						<p className="text-gray-600 mb-4">プログラムで動的に回路を生成：</p>
+
+						<button
+							onClick={createDynamicCircuit}
+							className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+						>
+							ランダム回路生成
+						</button>
+						<svg
+							ref={dynamicExampleRef}
+							className="w-full border-2 border-gray-200 rounded-lg bg-white"
+							width="800"
+							height="300"
+							viewBox="0 0 800 300"
+						/>
 					</div>
 				</div>
 			</div>

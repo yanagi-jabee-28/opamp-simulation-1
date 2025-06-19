@@ -5,6 +5,8 @@ import {
 	Resistor,
 	Inductor,
 	Capacitor,
+	CMOSN,
+	CMOSP,
 	CircuitComponent,
 	ComponentData
 } from '../lib/circuit-components';
@@ -13,7 +15,7 @@ interface ComponentLibraryAppProps {
 	className?: string;
 }
 
-type ComponentType = 'resistor' | 'inductor' | 'capacitor';
+type ComponentType = 'resistor' | 'inductor' | 'capacitor' | 'cmosn' | 'cmosp';
 
 const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '' }) => {
 	const svgRef = useRef<SVGSVGElement>(null);
@@ -59,7 +61,6 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 
 		const value = componentValue || getDefaultValue(selectedComponentType);
 		let component: CircuitComponent;
-
 		switch (selectedComponentType) {
 			case 'resistor':
 				component = new Resistor(x, y, rotation, value);
@@ -70,6 +71,12 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 			case 'capacitor':
 				component = new Capacitor(x, y, rotation, value);
 				break;
+			case 'cmosn':
+				component = new CMOSN(x, y, rotation, value);
+				break;
+			case 'cmosp':
+				component = new CMOSP(x, y, rotation, value);
+				break;
 			default:
 				return;
 		}
@@ -79,22 +86,26 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 		circuitDiagram.addComponent(component, id);
 		setStatusMessage(`${selectedComponentType}を追加しました (${value}) at (${Math.round(x)}, ${Math.round(y)})`);
 	}, [circuitDiagram, selectedComponentType, componentValue, rotation, componentCounter]);
-
 	// デフォルト値を取得
 	const getDefaultValue = (type: ComponentType): string => {
 		switch (type) {
 			case 'resistor': return 'R';
 			case 'inductor': return 'L';
 			case 'capacitor': return 'C';
+			case 'cmosn': return 'M_N';
+			case 'cmosp': return 'M_P';
+			default: return '';
 		}
 	};
-
 	// プレースホルダーを取得
 	const getPlaceholder = (type: ComponentType): string => {
 		switch (type) {
 			case 'resistor': return '例: 100Ω';
 			case 'inductor': return '例: 10mH';
 			case 'capacitor': return '例: 100μF';
+			case 'cmosn': return '例: M1_N';
+			case 'cmosp': return '例: M1_P';
+			default: return '';
 		}
 	};
 
@@ -226,8 +237,7 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 									}`}
 							>
 								インダクタ追加
-							</button>
-							<button
+							</button>							<button
 								onClick={() => handleComponentTypeChange('capacitor')}
 								className={`px-4 py-2 rounded-full font-medium transition-all ${selectedComponentType === 'capacitor'
 									? 'bg-blue-500 text-white shadow-lg'
@@ -235,6 +245,24 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 									}`}
 							>
 								コンデンサ追加
+							</button>
+							<button
+								onClick={() => handleComponentTypeChange('cmosn')}
+								className={`px-4 py-2 rounded-full font-medium transition-all ${selectedComponentType === 'cmosn'
+									? 'bg-green-500 text-white shadow-lg'
+									: 'bg-white text-gray-700 hover:bg-green-50'
+									}`}
+							>
+								NMOS追加
+							</button>
+							<button
+								onClick={() => handleComponentTypeChange('cmosp')}
+								className={`px-4 py-2 rounded-full font-medium transition-all ${selectedComponentType === 'cmosp'
+									? 'bg-purple-500 text-white shadow-lg'
+									: 'bg-white text-gray-700 hover:bg-purple-50'
+									}`}
+							>
+								PMOS追加
 							</button>
 
 							<div className="flex items-center gap-2">
