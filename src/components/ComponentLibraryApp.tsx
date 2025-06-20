@@ -31,6 +31,10 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 	const [exportData, setExportData] = useState<string>('');
 	const [importData, setImportData] = useState<string>('');
 	const [componentCounter, setComponentCounter] = useState<number>(0);
+	// 新機能: SVG埋め込み方式切り替え
+	const [useDirectEmbedding, setUseDirectEmbedding] = useState<boolean>(false);
+	// 新機能: 部品選択機能
+	const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
 
 	// 初期化
 	useEffect(() => {
@@ -49,10 +53,8 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 		if (componentLibrary) {
 			setLibraryItems(componentLibrary.components);
 		}
-	}, [componentLibrary]);
-
-	// SVGクリックハンドラー
-	const handleSvgClick = useCallback((event: React.MouseEvent<SVGSVGElement>) => {
+	}, [componentLibrary]);	// SVGクリックハンドラー
+	const handleSvgClick = useCallback(async (event: React.MouseEvent<SVGSVGElement>) => {
 		if (!circuitDiagram || !svgRef.current) return;
 
 		const rect = svgRef.current.getBoundingClientRect();
@@ -81,11 +83,19 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 				return;
 		}
 
+		// SVG埋め込み方式を設定
+		component.setDirectEmbedding(useDirectEmbedding);
+
 		const id = `comp_${componentCounter + 1}`;
 		setComponentCounter(prev => prev + 1);
-		circuitDiagram.addComponent(component, id);
-		setStatusMessage(`${selectedComponentType}を追加しました (${value}) at (${Math.round(x)}, ${Math.round(y)})`);
-	}, [circuitDiagram, selectedComponentType, componentValue, rotation, componentCounter]);
+		try {
+			await circuitDiagram.addComponent(component, id);
+			setStatusMessage(`${selectedComponentType}を追加しました (${value}) at (${Math.round(x)}, ${Math.round(y)})`);
+		} catch (error) {
+			console.error('部品追加エラー:', error);
+			setStatusMessage(`部品追加に失敗しました: ${error}`);
+		}
+	}, [circuitDiagram, selectedComponentType, componentValue, rotation, componentCounter, useDirectEmbedding]);
 	// デフォルト値を取得
 	const getDefaultValue = (type: ComponentType): string => {
 		switch (type) {
@@ -209,6 +219,40 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 		}
 	};
 
+	// SVG直接埋め込み方式を切り替え
+	const toggleEmbeddingMode = useCallback(() => {
+		if (!circuitDiagram) return;
+
+		setUseDirectEmbedding(prev => {
+			const newMode = !prev;
+			// 既存の全部品に新しい埋め込み方式を適用
+			circuitDiagram.components.forEach(({ component }) => {
+				component.setDirectEmbedding(newMode);
+			});
+
+			// 画面をリフレッシュ
+			refreshDiagram();
+
+			setStatusMessage(`SVG埋め込み方式を ${newMode ? '直接埋め込み' : 'imageタグ'} に変更しました`);
+			return newMode;
+		});
+	}, [circuitDiagram]);
+	// 回路図をリフレッシュ
+	const refreshDiagram = useCallback(async () => {
+		if (!circuitDiagram || !svgRef.current) return;
+
+		const components = [...circuitDiagram.components];
+		circuitDiagram.clear();
+
+		for (const { component, id } of components) {
+			try {
+				await circuitDiagram.addComponent(component, id);
+			} catch (error) {
+				console.error('部品再描画エラー:', error);
+			}
+		}
+	}, [circuitDiagram]);
+
 	return (
 		<div className={`min-h-screen bg-gradient-to-br from-blue-400 to-purple-600 p-5 ${className}`}>
 			<div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-10">
@@ -274,9 +318,7 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 									placeholder={getPlaceholder(selectedComponentType)}
 									className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
 								/>
-							</div>
-
-							<div className="flex items-center gap-2">
+							</div>							<div className="flex items-center gap-2">
 								<label className="text-sm font-medium text-gray-700">回転:</label>
 								<select
 									value={rotation}
@@ -289,6 +331,20 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 									<option value={270}>270°</option>
 								</select>
 							</div>
+
+							{/* 新機能: SVG埋め込み方式切り替え */}
+							<div className="flex items-center gap-2">
+								<label className="text-sm font-medium text-gray-700">SVG描画:</label>
+								<button
+									onClick={toggleEmbeddingMode}
+									className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${useDirectEmbedding
+											? 'bg-blue-500 text-white shadow-lg'
+											: 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+										}`}
+								>
+									{useDirectEmbedding ? '直接埋め込み' : 'imageタグ'}
+								</button>
+							</div>
 						</div>
 
 						<div className="flex gap-2">
@@ -297,6 +353,12 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 								className="px-4 py-2 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition-all"
 							>
 								クリア
+							</button>
+							<button
+								onClick={refreshDiagram}
+								className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all"
+							>
+								リフレッシュ
 							</button>
 							<button
 								onClick={saveCurrentComponent}
@@ -339,7 +401,62 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 					</svg>
 				</div>
 
-				{/* ライブラリパネル */}
+				{/* 現在の回路部品リスト */}
+				<div className="bg-gray-50 rounded-2xl p-6 shadow-inner mb-8">
+					<h2 className="text-2xl font-bold text-gray-800 mb-5">現在の回路部品</h2>
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+						{circuitDiagram?.components.length === 0 ? (
+							<div className="col-span-full text-center text-gray-500 py-8">
+								回路に部品がありません
+							</div>
+						) : (
+							circuitDiagram?.components.map(({ component, id }) => (
+								<div
+									key={id}
+									className={`bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all cursor-pointer ${selectedComponentId === id ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+										}`}
+									onClick={() => {
+										if (selectedComponentId === id) {
+											// 選択解除
+											component.setSelected(false);
+											setSelectedComponentId(null);
+										} else {
+											// 前の選択を解除
+											if (selectedComponentId) {
+												const prevSelected = circuitDiagram?.getComponent(selectedComponentId);
+												if (prevSelected) {
+													prevSelected.component.setSelected(false);
+												}
+											}										// 新しい部品を選択
+											component.setSelected(true);
+											setSelectedComponentId(id || null);
+										}
+										refreshDiagram();
+									}}
+								>
+									<div className="font-bold text-gray-800 mb-1">{id}</div>
+									<div className="text-sm text-gray-600 mb-2">
+										{component.constructor.name} ({component.value || '値なし'})
+									</div>
+									<div className="text-xs text-gray-500 mb-3">
+										位置: ({Math.round(component.x)}, {Math.round(component.y)})
+										{component.rotation !== 0 && `, 回転: ${component.rotation}°`}
+									</div>
+									<div className="text-xs">
+										<span className={`px-2 py-1 rounded-full ${component.useDirectEmbedding
+												? 'bg-blue-100 text-blue-800'
+												: 'bg-gray-100 text-gray-800'
+											}`}>
+											{component.useDirectEmbedding ? '直接埋め込み' : 'imageタグ'}
+										</span>
+									</div>
+								</div>
+							))
+						)}
+					</div>
+				</div>
+
+				{/* 保存された部品ライブラリ */}
 				<div className="bg-gray-50 rounded-2xl p-6 shadow-inner">
 					<h2 className="text-2xl font-bold text-gray-800 mb-5">保存された部品ライブラリ</h2>
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
