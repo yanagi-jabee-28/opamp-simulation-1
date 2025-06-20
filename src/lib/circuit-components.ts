@@ -1,6 +1,7 @@
 /**
  * 電子回路部品ライブラリ (TypeScript版)
  * 再利用可能な電子回路素子のクラス定義
+ * SVGファイルベースのコンポーネント対応
  */
 
 export interface ComponentData {
@@ -36,6 +37,26 @@ export interface SVGElementProps {
 	'font-weight'?: string;
 	transform?: string;
 	id?: string;
+	href?: string;
+}
+
+// SVGファイルを読み込むためのユーティリティ関数
+export async function loadSVGFromFile(svgPath: string): Promise<SVGElement | null> {
+	try {
+		const response = await fetch(svgPath);
+		if (!response.ok) {
+			console.warn(`SVGファイルの読み込みに失敗: ${svgPath}`);
+			return null;
+		}
+		const svgText = await response.text();
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(svgText, 'image/svg+xml');
+		const svgElement = doc.querySelector('svg');
+		return svgElement;
+	} catch (error) {
+		console.error(`SVGファイルの読み込みエラー: ${svgPath}`, error);
+		return null;
+	}
 }
 
 export abstract class CircuitComponent {
@@ -46,8 +67,9 @@ export abstract class CircuitComponent {
 	public height: number;
 	public terminalLength: number;
 	public value?: string;
+	protected svgPath?: string;
 
-	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string) {
+	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string, svgPath?: string) {
 		this.x = x;
 		this.y = y;
 		this.rotation = rotation;
@@ -55,7 +77,9 @@ export abstract class CircuitComponent {
 		this.height = 40;
 		this.terminalLength = 40;
 		this.value = value;
+		this.svgPath = svgPath;
 	}
+
 	protected applyTransform(element: SVGGElement): SVGGElement {
 		if (this.rotation !== 0) {
 			element.setAttribute('transform',
@@ -88,6 +112,25 @@ export abstract class CircuitComponent {
 		return element;
 	}
 
+	// SVGファイルから画像として読み込んで描画
+	protected renderFromSVGFile(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		const group = this.createGroup(id);
+
+		if (this.svgPath) {
+			const image = this.createElement('image', {
+				href: this.svgPath,
+				x: -90, // 中央に配置するためのオフセット
+				y: -40,
+				width: 180,
+				height: 80
+			});
+			group.appendChild(image);
+		}
+
+		parentSvg.appendChild(group);
+		return group;
+	}
+
 	abstract render(parentSvg: SVGSVGElement, id?: string): SVGGElement;
 
 	public toData(): ComponentData {
@@ -106,11 +149,20 @@ export class Resistor extends CircuitComponent {
 	public color: string;
 
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "R") {
-		super(x, y, rotation, value);
+		super(x, y, rotation, value, "/svg-components/resistor.svg");
 		this.color = "#e74c3c";
 	}
 
 	public render(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		// SVGファイルが利用可能な場合はそちらを使用
+		if (this.svgPath) {
+			return this.renderFromSVGFile(parentSvg, id);
+		}
+		// フォールバック: 従来の描画方式
+		return this.renderFallback(parentSvg, id);
+	}
+
+	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
 
 		// 配線
@@ -183,13 +235,22 @@ export class Inductor extends CircuitComponent {
 	public coilCount: number;
 
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "L") {
-		super(x, y, rotation, value);
+		super(x, y, rotation, value, "/svg-components/inductor.svg");
 		this.color = "#2ecc71";
 		this.coilRadius = 12.5;
 		this.coilCount = 4;
 	}
 
 	public render(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		// SVGファイルが利用可能な場合はそちらを使用
+		if (this.svgPath) {
+			return this.renderFromSVGFile(parentSvg, id);
+		}
+		// フォールバック: 従来の描画方式
+		return this.renderFallback(parentSvg, id);
+	}
+
+	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
 
 		// 配線
@@ -256,13 +317,22 @@ export class Capacitor extends CircuitComponent {
 	public plateHeight: number;
 
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "C") {
-		super(x, y, rotation, value);
+		super(x, y, rotation, value, "/svg-components/capacitor.svg");
 		this.color = "#9b59b6";
 		this.plateGap = 20;
 		this.plateHeight = 40;
 	}
 
 	public render(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		// SVGファイルが利用可能な場合はそちらを使用
+		if (this.svgPath) {
+			return this.renderFromSVGFile(parentSvg, id);
+		}
+		// フォールバック: 従来の描画方式
+		return this.renderFallback(parentSvg, id);
+	}
+
+	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
 
 		const plateX1 = this.terminalLength + this.width / 2 - this.plateGap / 2;
@@ -466,13 +536,15 @@ export class ComponentLibrary {
 export abstract class MOSTransistor extends CircuitComponent {
 	public transistorType: 'NMOS' | 'PMOS';
 
-	constructor(x: number = 0, y: number = 0, rotation: number = 0, transistorType: 'NMOS' | 'PMOS' = 'NMOS', value?: string) {
-		super(x, y, rotation, value);
+	constructor(x: number = 0, y: number = 0, rotation: number = 0, transistorType: 'NMOS' | 'PMOS' = 'NMOS', value?: string, svgPath?: string) {
+		super(x, y, rotation, value, svgPath);
 		this.width = 50;
 		this.height = 50;
 		this.terminalLength = 20;
 		this.transistorType = transistorType;
 	}
+
+	protected abstract renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement;
 
 	protected drawBasicStructure(group: SVGGElement): void {
 		// メインの縦線（チャネル）
@@ -609,10 +681,19 @@ export abstract class MOSTransistor extends CircuitComponent {
 // NMOS トランジスタ (極めてシンプルなシンボル)
 export class CMOSN extends MOSTransistor {
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string) {
-		super(x, y, rotation, 'NMOS', value);
+		super(x, y, rotation, 'NMOS', value, "/svg-components/nmos-simple.svg");
 	}
 
 	public render(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		// SVGファイルが利用可能な場合はそちらを使用
+		if (this.svgPath) {
+			return this.renderFromSVGFile(parentSvg, id);
+		}
+		// フォールバック: 従来の描画方式
+		return this.renderFallback(parentSvg, id);
+	}
+
+	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
 
 		// 基本構造を描画
@@ -649,10 +730,19 @@ export class CMOSN extends MOSTransistor {
 // PMOS トランジスタ (極めてシンプルなシンボル)
 export class CMOSP extends MOSTransistor {
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string) {
-		super(x, y, rotation, 'PMOS', value);
+		super(x, y, rotation, 'PMOS', value, "/svg-components/pmos-simple.svg");
 	}
 
 	public render(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+		// SVGファイルが利用可能な場合はそちらを使用
+		if (this.svgPath) {
+			return this.renderFromSVGFile(parentSvg, id);
+		}
+		// フォールバック: 従来の描画方式
+		return this.renderFallback(parentSvg, id);
+	}
+
+	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
 
 		// 基本構造を描画
