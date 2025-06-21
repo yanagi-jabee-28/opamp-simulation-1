@@ -93,11 +93,9 @@ export abstract class CircuitComponent {
 	public height: number;
 	public terminalLength: number;
 	public value?: string;
-	protected svgPath?: string;
-	// 新機能: インタラクティブ編集
+	protected svgPath?: string;	// 新機能: インタラクティブ編集
 	public isSelected: boolean = false;
 	public isEditing: boolean = false;
-	public useDirectEmbedding: boolean = false; // SVG直接埋め込みオプション
 
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string, svgPath?: string) {
 		this.x = x;
@@ -138,53 +136,7 @@ export abstract class CircuitComponent {
 				element.setAttribute(key, String(value));
 			}
 		});
-
 		return element;
-	}	// SVGファイルをimage要素として描画（非同期読み込み対応）
-	protected renderFromSVGFile(parentSvg: SVGSVGElement, id?: string): SVGGElement {
-		const group = this.createGroup(id);
-
-		if (this.svgPath) {
-			// 適切なサイズでSVGファイルを表示
-			const image = this.createElement('image', {
-				href: this.svgPath,
-				x: -30, // 中央に配置するためのオフセット
-				y: -15,
-				width: 60,
-				height: 30,
-				preserveAspectRatio: 'xMidYMid meet'
-			});
-
-			// 画像読み込みエラーの場合はフォールバックを試行
-			image.addEventListener('error', () => {
-				console.warn(`SVG画像の読み込みに失敗: ${this.svgPath}`);
-				// 画像要素を削除
-				if (image.parentNode) {
-					image.parentNode.removeChild(image);
-				}
-				// フォールバック描画
-				group.appendChild(this.createFallbackElement());
-			});
-
-			group.appendChild(image);
-
-			// 値のラベルを追加
-			if (this.value) {
-				const label = this.createElement('text', {
-					x: 0,
-					y: 25,
-					'text-anchor': 'middle',
-					'font-family': 'Arial',
-					'font-size': 10,
-					fill: '#333'
-				});
-				label.textContent = this.value;
-				group.appendChild(label);
-			}
-		}
-
-		parentSvg.appendChild(group);
-		return group;
 	}
 
 	// フォールバック要素を作成
@@ -202,39 +154,8 @@ export abstract class CircuitComponent {
 		return rect;
 	}
 
-	// 新機能: 部品の選択状態設定
-	public setSelected(selected: boolean): void {
-		this.isSelected = selected;
-	}
-
-	// 新機能: 編集モード切り替え
-	public setEditing(editing: boolean): void {
-		this.isEditing = editing;
-	}
-
-	// 新機能: SVG埋め込み方式切り替え
-	public setDirectEmbedding(useDirectEmbedding: boolean): void {
-		this.useDirectEmbedding = useDirectEmbedding;
-	}
-
-	// 新機能: 値の動的更新
-	public updateValue(newValue: string): void {
-		this.value = newValue;
-	}
-
-	// 新機能: 位置の動的更新
-	public updatePosition(x: number, y: number): void {
-		this.x = x;
-		this.y = y;
-	}
-
-	// 新機能: 回転角度の動的更新
-	public updateRotation(rotation: number): void {
-		this.rotation = rotation;
-	}
-
-	// 新機能: SVG直接埋め込みを使った描画
-	protected async renderFromSVGEmbedding(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
+	// SVG直接埋め込みを使った描画
+	protected async renderFromSVG(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
 		const group = this.createGroup(id);
 
 		if (this.svgPath) {
@@ -278,6 +199,16 @@ export abstract class CircuitComponent {
 		return group;
 	}
 
+	// 新機能: 部品の選択状態設定
+	public setSelected(selected: boolean): void {
+		this.isSelected = selected;
+	}
+
+	// 新機能: 編集モード切り替え
+	public setEditing(editing: boolean): void {
+		this.isEditing = editing;
+	}
+
 	abstract render(parentSvg: SVGSVGElement, id?: string): SVGGElement | Promise<SVGGElement>;
 
 	public toData(): ComponentData {
@@ -301,14 +232,9 @@ export class Resistor extends CircuitComponent {
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
-		// SVGファイルが利用可能な場合はそちらを使用
+		// SVGファイルが利用可能な場合は直接埋め込み方式を使用
 		if (this.svgPath) {
-			// SVG直接埋め込みが有効な場合
-			if (this.useDirectEmbedding) {
-				return await this.renderFromSVGEmbedding(parentSvg, id);
-			}
-			// デフォルト: imageタグを使用
-			return this.renderFromSVGFile(parentSvg, id);
+			return await this.renderFromSVG(parentSvg, id);
 		}
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);
@@ -394,14 +320,9 @@ export class Inductor extends CircuitComponent {
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
-		// SVGファイルが利用可能な場合はそちらを使用
+		// SVGファイルが利用可能な場合は直接埋め込み方式を使用
 		if (this.svgPath) {
-			// SVG直接埋め込みが有効な場合
-			if (this.useDirectEmbedding) {
-				return await this.renderFromSVGEmbedding(parentSvg, id);
-			}
-			// デフォルト: imageタグを使用
-			return this.renderFromSVGFile(parentSvg, id);
+			return await this.renderFromSVG(parentSvg, id);
 		}
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);
@@ -481,14 +402,9 @@ export class Capacitor extends CircuitComponent {
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
-		// SVGファイルが利用可能な場合はそちらを使用
+		// SVGファイルが利用可能な場合は直接埋め込み方式を使用
 		if (this.svgPath) {
-			// SVG直接埋め込みが有効な場合
-			if (this.useDirectEmbedding) {
-				return await this.renderFromSVGEmbedding(parentSvg, id);
-			}
-			// デフォルト: imageタグを使用
-			return this.renderFromSVGFile(parentSvg, id);
+			return await this.renderFromSVG(parentSvg, id);
 		}
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);
@@ -846,40 +762,9 @@ export class CMOSN extends MOSTransistor {
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
-		// SVGファイルが利用可能な場合はそちらを使用（MOSFETの場合はより小さなサイズ）
+		// SVGファイルが利用可能な場合は直接埋め込み方式を使用
 		if (this.svgPath) {
-			// SVG直接埋め込みが有効な場合
-			if (this.useDirectEmbedding) {
-				return await this.renderFromSVGEmbedding(parentSvg, id);
-			}
-			// デフォルト: imageタグを使用
-			const group = this.createGroup(id);
-			const image = this.createElement('image', {
-				href: this.svgPath,
-				x: -20, // MOSFET用に調整
-				y: -25,
-				width: 40,
-				height: 50,
-				preserveAspectRatio: 'xMidYMid meet'
-			});
-			group.appendChild(image);
-
-			// 値のラベルを追加
-			if (this.value) {
-				const label = this.createElement('text', {
-					x: 0,
-					y: 35,
-					'text-anchor': 'middle',
-					'font-family': 'Arial',
-					'font-size': 10,
-					fill: '#333'
-				});
-				label.textContent = this.value;
-				group.appendChild(label);
-			}
-
-			parentSvg.appendChild(group);
-			return group;
+			return await this.renderFromSVG(parentSvg, id);
 		}
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);
@@ -926,40 +811,9 @@ export class CMOSP extends MOSTransistor {
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
-		// SVGファイルが利用可能な場合はそちらを使用（MOSFETの場合はより小さなサイズ）
+		// SVGファイルが利用可能な場合は直接埋め込み方式を使用
 		if (this.svgPath) {
-			// SVG直接埋め込みが有効な場合
-			if (this.useDirectEmbedding) {
-				return await this.renderFromSVGEmbedding(parentSvg, id);
-			}
-			// デフォルト: imageタグを使用
-			const group = this.createGroup(id);
-			const image = this.createElement('image', {
-				href: this.svgPath,
-				x: -20, // MOSFET用に調整
-				y: -25,
-				width: 40,
-				height: 50,
-				preserveAspectRatio: 'xMidYMid meet'
-			});
-			group.appendChild(image);
-
-			// 値のラベルを追加
-			if (this.value) {
-				const label = this.createElement('text', {
-					x: 0,
-					y: 35,
-					'text-anchor': 'middle',
-					'font-family': 'Arial',
-					'font-size': 10,
-					fill: '#333'
-				});
-				label.textContent = this.value;
-				group.appendChild(label);
-			}
-
-			parentSvg.appendChild(group);
-			return group;
+			return await this.renderFromSVG(parentSvg, id);
 		}
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);

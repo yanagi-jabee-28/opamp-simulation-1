@@ -29,10 +29,7 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 	const [showExportModal, setShowExportModal] = useState<boolean>(false);
 	const [showImportModal, setShowImportModal] = useState<boolean>(false);
 	const [exportData, setExportData] = useState<string>('');
-	const [importData, setImportData] = useState<string>('');
-	const [componentCounter, setComponentCounter] = useState<number>(0);
-	// 新機能: SVG埋め込み方式切り替え
-	const [useDirectEmbedding, setUseDirectEmbedding] = useState<boolean>(false);
+	const [importData, setImportData] = useState<string>(''); const [componentCounter, setComponentCounter] = useState<number>(0);
 	// 新機能: 部品選択機能
 	const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
 
@@ -83,9 +80,6 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 				return;
 		}
 
-		// SVG埋め込み方式を設定
-		component.setDirectEmbedding(useDirectEmbedding);
-
 		const id = `comp_${componentCounter + 1}`;
 		setComponentCounter(prev => prev + 1);
 		try {
@@ -95,7 +89,7 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 			console.error('部品追加エラー:', error);
 			setStatusMessage(`部品追加に失敗しました: ${error}`);
 		}
-	}, [circuitDiagram, selectedComponentType, componentValue, rotation, componentCounter, useDirectEmbedding]);
+	}, [circuitDiagram, selectedComponentType, componentValue, rotation, componentCounter]);
 	// デフォルト値を取得
 	const getDefaultValue = (type: ComponentType): string => {
 		switch (type) {
@@ -219,24 +213,6 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 		}
 	};
 
-	// SVG直接埋め込み方式を切り替え
-	const toggleEmbeddingMode = useCallback(() => {
-		if (!circuitDiagram) return;
-
-		setUseDirectEmbedding(prev => {
-			const newMode = !prev;
-			// 既存の全部品に新しい埋め込み方式を適用
-			circuitDiagram.components.forEach(({ component }) => {
-				component.setDirectEmbedding(newMode);
-			});
-
-			// 画面をリフレッシュ
-			refreshDiagram();
-
-			setStatusMessage(`SVG埋め込み方式を ${newMode ? '直接埋め込み' : 'imageタグ'} に変更しました`);
-			return newMode;
-		});
-	}, [circuitDiagram]);
 	// 回路図をリフレッシュ
 	const refreshDiagram = useCallback(async () => {
 		if (!circuitDiagram || !svgRef.current) return;
@@ -328,22 +304,7 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 									<option value={0}>0°</option>
 									<option value={90}>90°</option>
 									<option value={180}>180°</option>
-									<option value={270}>270°</option>
-								</select>
-							</div>
-
-							{/* 新機能: SVG埋め込み方式切り替え */}
-							<div className="flex items-center gap-2">
-								<label className="text-sm font-medium text-gray-700">SVG描画:</label>
-								<button
-									onClick={toggleEmbeddingMode}
-									className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${useDirectEmbedding
-											? 'bg-blue-500 text-white shadow-lg'
-											: 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-										}`}
-								>
-									{useDirectEmbedding ? '直接埋め込み' : 'imageタグ'}
-								</button>
+									<option value={270}>270°</option>								</select>
 							</div>
 						</div>
 
@@ -440,14 +401,10 @@ const ComponentLibraryApp: React.FC<ComponentLibraryAppProps> = ({ className = '
 									</div>
 									<div className="text-xs text-gray-500 mb-3">
 										位置: ({Math.round(component.x)}, {Math.round(component.y)})
-										{component.rotation !== 0 && `, 回転: ${component.rotation}°`}
-									</div>
+										{component.rotation !== 0 && `, 回転: ${component.rotation}°`}									</div>
 									<div className="text-xs">
-										<span className={`px-2 py-1 rounded-full ${component.useDirectEmbedding
-												? 'bg-blue-100 text-blue-800'
-												: 'bg-gray-100 text-gray-800'
-											}`}>
-											{component.useDirectEmbedding ? '直接埋め込み' : 'imageタグ'}
+										<span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+											直接埋め込み
 										</span>
 									</div>
 								</div>

@@ -64,27 +64,54 @@ npm run preview
 - **React Router**: SPA用ルーティング
 - **SVG**: 高品質なベクター図形描画
 
+## ⚙️ 設定ファイル
+
+プロジェクトは以下の設定ファイルで管理されています：
+
+### 📦 プロジェクト管理
+- **`package.json`**: プロジェクト定義、依存関係、NPMスクリプト
+- **`package-lock.json`**: 依存関係の正確なバージョン固定（自動生成）
+
+### 🔧 ビルド・開発環境
+- **`vite.config.ts`**: Viteビルドツール設定（React、HMR、バンドル）
+- **`tsconfig.json`**: TypeScriptメイン設定（src/用）
+- **`tsconfig.node.json`**: TypeScript Node.js設定（Vite設定用）
+
+### 🎨 スタイル処理
+- **`tailwind.config.js`**: Tailwind CSS設定（適用範囲、テーマ）
+- **`postcss.config.js`**: PostCSS設定（Tailwind処理、Autoprefixer）
+
+📋 詳細は [`docs/config-files-guide.md`](./docs/config-files-guide.md) を参照してください。
+
 ## 📁 プロジェクト構造
 
 ```
-├── src/
-│   ├── components/
-│   │   ├── ComponentLibraryApp.tsx  # メイン部品ライブラリ画面
-│   │   └── ExamplesPage.tsx         # 使用例とデモページ
-│   ├── lib/
-│   │   └── circuit-components.ts    # 電子回路部品クラス定義
-│   ├── App.tsx                      # メインアプリケーション
-│   ├── main.tsx                     # エントリーポイント
-│   ├── index.css                    # グローバルスタイル
-│   └── vite-env.d.ts               # TypeScript型定義
-├── index.html                       # HTMLテンプレート
-├── package.json                     # プロジェクト設定
-├── tailwind.config.js              # Tailwind CSS設定
-├── postcss.config.js               # PostCSS設定
-├── tsconfig.json                    # TypeScript設定
-├── tsconfig.node.json              # Node.js用TypeScript設定
-└── vite.config.ts                  # Vite設定
+opamp-simulation-1/
+├── src/                          # TypeScript/Reactソースコード
+│   ├── components/               # Reactコンポーネント
+│   ├── lib/                     # 部品ライブラリのコアロジック
+│   └── main.tsx                 # エントリーポイント
+├── svg-components/              # SVG部品ファイル（素子2バージョン）
+│   ├── resistor2.svg           # 抵抗器SVG
+│   ├── inductor2.svg           # インダクタSVG
+│   ├── capacitor2.svg          # コンデンサSVG
+│   ├── nmos-simple2.svg        # NMOS SVG
+│   └── pmos-simple2.svg        # PMOS SVG
+├── public/                      # 静的ファイル・テストページ
+│   ├── svg-test.html           # SVGコンポーネントテストページ
+│   └── index.html              # スタンドアロンデモページ
+├── legacy/                      # 旧バージョンファイル
+├── docs/                        # ドキュメント・設計ファイル
+│   └── test.drawio             # Draw.io設計ファイル
+├── new018.md                    # SPICEモデルパラメータ
+└── README.md                    # このファイル
 ```
+
+### 重要なファイル
+- **`src/lib/circuit-components.ts`**: 部品ライブラリのコアクラス
+- **`src/components/ComponentLibraryApp.tsx`**: メインアプリケーション
+- **`svg-components/`**: 高品質なSVG部品ファイル
+- **`public/svg-test.html`**: 開発・テスト用ページ
 
 ## 💡 機能詳細
 
