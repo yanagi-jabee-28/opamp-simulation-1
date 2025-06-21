@@ -45,18 +45,50 @@ export interface SVGElementProps {
 // SVGファイルを読み込むためのユーティリティ関数
 export async function loadSVGFromFile(svgPath: string): Promise<SVGElement | null> {
 	try {
+		// 🚨 SVGファイル読み込みデバッグ
+		console.log(`📂🔍 SVGファイル読み込み開始:`, { svgPath });
+
 		const response = await fetch(svgPath);
+
+		console.log(`📂📡 fetch結果:`, {
+			ok: response.ok,
+			status: response.status,
+			statusText: response.statusText,
+			url: response.url
+		});
+
 		if (!response.ok) {
-			console.warn(`SVGファイルの読み込みに失敗: ${svgPath}`);
+			console.warn(`📂❌ SVGファイルの読み込みに失敗:`, {
+				svgPath,
+				status: response.status,
+				statusText: response.statusText
+			});
 			return null;
 		}
+
 		const svgText = await response.text();
+		console.log(`📂📄 SVGテキスト取得:`, {
+			svgPath,
+			textLength: svgText.length,
+			textPreview: svgText.substring(0, 200) + '...'
+		});
+
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(svgText, 'image/svg+xml');
 		const svgElement = doc.querySelector('svg');
+
+		console.log(`📂🎨 SVG要素パース結果:`, {
+			svgPath,
+			svgElementFound: !!svgElement,
+			svgChildCount: svgElement?.children.length || 0,
+			svgViewBox: svgElement?.getAttribute('viewBox'),
+			svgWidth: svgElement?.getAttribute('width'),
+			svgHeight: svgElement?.getAttribute('height')
+		});
+
 		return svgElement;
 	} catch (error) {
-		console.error(`SVGファイルの読み込みエラー: ${svgPath}`, error);
+		console.error(`📂💥 SVGファイルの読み込みエラー:`, { svgPath, error });
 		return null;
 	}
 }
@@ -64,23 +96,46 @@ export async function loadSVGFromFile(svgPath: string): Promise<SVGElement | nul
 // SVG内容を直接埋め込むためのユーティリティ関数
 export async function embedSVGContent(svgPath: string, targetGroup: SVGGElement, scale: number = 1): Promise<boolean> {
 	try {
+		// 🚨 SVG埋め込みデバッグ
+		console.log(`🎨📂 SVG埋め込み開始:`, { svgPath, scale, targetGroupId: targetGroup.id });
+
 		const svgElement = await loadSVGFromFile(svgPath);
-		if (!svgElement) return false;
+		if (!svgElement) {
+			console.log(`🎨❌ SVG要素の取得に失敗:`, { svgPath });
+			return false;
+		}
 
 		// SVGの内容をグループに移植
 		const elements = Array.from(svgElement.children);
-		elements.forEach(child => {
+		console.log(`🎨🔧 SVG要素移植開始:`, {
+			svgPath,
+			elementsCount: elements.length,
+			elementTypes: elements.map(el => el.tagName)
+		});
+
+		elements.forEach((child, index) => {
 			const clonedChild = child.cloneNode(true) as SVGElement;
 			if (scale !== 1) {
 				const currentTransform = clonedChild.getAttribute('transform') || '';
 				clonedChild.setAttribute('transform', `${currentTransform} scale(${scale})`);
 			}
 			targetGroup.appendChild(clonedChild);
+
+			console.log(`🎨➕ 要素${index + 1}追加:`, {
+				tagName: clonedChild.tagName,
+				transform: clonedChild.getAttribute('transform'),
+				id: clonedChild.id
+			});
+		});
+
+		console.log(`🎨✅ SVG埋め込み完了:`, {
+			svgPath,
+			targetGroupChildCount: targetGroup.children.length
 		});
 
 		return true;
 	} catch (error) {
-		console.error('SVG埋め込みエラー:', error);
+		console.error(`🎨💥 SVG埋め込みエラー:`, { svgPath, error });
 		return false;
 	}
 }
@@ -95,17 +150,27 @@ export abstract class CircuitComponent {
 	public value?: string;
 	protected svgPath?: string;	// 新機能: インタラクティブ編集
 	public isSelected: boolean = false;
-	public isEditing: boolean = false;
-
-	constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string, svgPath?: string) {
+	public isEditing: boolean = false; constructor(x: number = 0, y: number = 0, rotation: number = 0, value?: string, svgPath?: string) {
 		this.x = x;
 		this.y = y;
 		this.rotation = rotation;
-		this.width = 100;
-		this.height = 40;
-		this.terminalLength = 40;
+		// 🚀 極端に大きくする - グリッドサイズ(500px)を完全に上回る巨大サイズ
+		this.width = 1200;      // 500pxグリッドの2.4倍
+		this.height = 800;      // 500pxグリッドの1.6倍  
+		this.terminalLength = 200;   // 端子も極大
 		this.value = value;
 		this.svgPath = svgPath;
+
+		// 🔍 強化デバッグログ - 確実にサイズ確認
+		console.log(`🚀📐 部品作成（超極大サイズ確定）:`, {
+			type: this.constructor.name,
+			coordinates: { x: this.x, y: this.y },
+			size: { width: this.width, height: this.height },
+			terminalLength: this.terminalLength,
+			value: this.value,
+			gridNote: '500pxグリッドを完全に覆う巨大サイズ',
+			timestamp: new Date().toISOString()
+		});
 	}
 
 	protected applyTransform(element: SVGGElement): SVGGElement {
@@ -138,7 +203,6 @@ export abstract class CircuitComponent {
 		});
 		return element;
 	}
-
 	// フォールバック要素を作成
 	protected createFallbackElement(): SVGElement {
 		const rect = this.createElement('rect', {
@@ -153,15 +217,50 @@ export abstract class CircuitComponent {
 		});
 		return rect;
 	}
-
+	// 🚨 BoundingBox取得用のセーフなヘルパーメソッド
+	protected getBoundingBoxSafe(element: SVGElement): any {
+		try {
+			const bbox = element.getBoundingClientRect();
+			return {
+				x: bbox.x,
+				y: bbox.y,
+				width: bbox.width,
+				height: bbox.height
+			};
+		} catch (error) {
+			console.warn('BoundingBox取得失敗:', error);
+			return { x: 0, y: 0, width: 0, height: 0, error: String(error) };
+		}
+	}
 	// SVG直接埋め込みを使った描画
 	protected async renderFromSVG(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
 		const group = this.createGroup(id);
 
+		// 🚨 SVG描画デバッグ - 詳細ログ
+		console.log(`🎨📐 SVG描画開始:`, {
+			component: this.constructor.name,
+			svgPath: this.svgPath,
+			id: id,
+			transform: group.getAttribute('transform'),
+			position: { x: this.x, y: this.y },
+			size: { width: this.width, height: this.height },
+			value: this.value
+		});
+
 		if (this.svgPath) {
 			const success = await embedSVGContent(this.svgPath, group, 1.0);
+
+			// 🚨 SVG埋め込み結果デバッグ
+			console.log(`🎨📂 SVG埋め込み結果:`, {
+				success: success,
+				svgPath: this.svgPath,
+				groupChildCount: group.children.length,
+				groupBBox: this.getBoundingBoxSafe(group)
+			});
+
 			if (!success) {
 				// フォールバック描画
+				console.log(`🚨 SVG読み込み失敗 - フォールバック描画実行`);
 				group.appendChild(this.createFallbackElement());
 			}
 
@@ -196,6 +295,16 @@ export abstract class CircuitComponent {
 		}
 
 		parentSvg.appendChild(group);
+
+		// 🚨 最終的な要素の描画確認
+		console.log(`🎨✅ SVG描画完了:`, {
+			component: this.constructor.name,
+			finalChildCount: group.children.length,
+			parentSvgChildCount: parentSvg.children.length,
+			groupBBox: this.getBoundingBoxSafe(group),
+			svgViewBox: parentSvg.getAttribute('viewBox')
+		});
+
 		return group;
 	}
 
@@ -229,6 +338,17 @@ export class Resistor extends CircuitComponent {
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "R") {
 		super(x, y, rotation, value, "/svg-components/resistor2.svg");
 		this.color = "#e74c3c";
+
+		// 🔍 抵抗器サイズ再確認 - 確実に極大サイズを維持
+		console.log(`🔴⚡ Resistor作成後サイズ確認:`, {
+			width: this.width,
+			height: this.height,
+			terminalLength: this.terminalLength,
+			color: this.color,
+			coordinates: { x: this.x, y: this.y },
+			value: this.value,
+			note: '継承後のサイズが正しく設定されているか確認'
+		});
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
@@ -238,25 +358,35 @@ export class Resistor extends CircuitComponent {
 		}
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);
-	}
-
-	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+	} protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
 
-		// 配線
+		// 🎯 動的サイズ対応 - 部品サイズに合わせて全要素をスケーリング
+		console.log(`🎨🔴 Resistor描画開始:`, {
+			width: this.width,
+			height: this.height,
+			terminalLength: this.terminalLength,
+			color: this.color,
+			position: { x: this.x, y: this.y },
+			rotation: this.rotation,
+			value: this.value,
+			note: '実際の描画に使用するサイズ'
+		});
+
+		// 配線（極太、実際のterminalLengthを使用）
 		const line1 = this.createElement('line', {
 			x1: 0, y1: 0,
 			x2: this.terminalLength, y2: 0,
-			stroke: '#333', 'stroke-width': 2
+			stroke: '#333', 'stroke-width': 80  // さらに極太
 		});
 
 		const line2 = this.createElement('line', {
 			x1: this.terminalLength + this.width, y1: 0,
 			x2: this.terminalLength + this.width + this.terminalLength, y2: 0,
-			stroke: '#333', 'stroke-width': 2
+			stroke: '#333', 'stroke-width': 80
 		});
 
-		// 抵抗器本体
+		// 抵抗器本体（実際のwidth/heightを使用）
 		const rect = this.createElement('rect', {
 			x: this.terminalLength,
 			y: -this.height / 2,
@@ -264,45 +394,85 @@ export class Resistor extends CircuitComponent {
 			height: this.height,
 			fill: 'none',
 			stroke: '#333',
-			'stroke-width': 2
+			'stroke-width': 80
 		});
 
-		// ジグザグパターン
-		const zigzagPath = `M${this.terminalLength + 10} 0 L${this.terminalLength + 20} -10 L${this.terminalLength + 30} 10 L${this.terminalLength + 40} -10 L${this.terminalLength + 50} 10 L${this.terminalLength + 60} -10 L${this.terminalLength + 70} 10 L${this.terminalLength + 80} -10 L${this.terminalLength + 90} 0`;
+		// 🚀 ジグザグパターン（動的サイズ計算）
+		const zigzagSteps = 6; // ジグザグの段数
+		const stepWidth = this.width / zigzagSteps; // 各段の幅
+		const zigzagHeight = this.height * 0.6; // ジグザグの高さ（部品の60%）
+
+		let zigzagPath = `M${this.terminalLength} 0`;
+		for (let i = 1; i <= zigzagSteps; i++) {
+			const x = this.terminalLength + i * stepWidth;
+			const y = (i % 2 === 1) ? -zigzagHeight / 2 : zigzagHeight / 2;
+			zigzagPath += ` L${x} ${y}`;
+		}
+		zigzagPath += ` L${this.terminalLength + this.width} 0`;
+
 		const zigzag = this.createElement('path', {
 			d: zigzagPath,
 			fill: 'none',
 			stroke: this.color,
-			'stroke-width': 3
+			'stroke-width': 100  // さらに極太
 		});
 
-		// 端子
+		// 端子（動的サイズ）
+		const terminalRadius = Math.min(this.height, this.terminalLength) * 0.4;
 		const terminal1 = this.createElement('circle', {
-			cx: 0, cy: 0, r: 3, fill: '#333'
+			cx: 0, cy: 0, r: terminalRadius, fill: '#333'
 		});
-
 		const terminal2 = this.createElement('circle', {
 			cx: this.terminalLength + this.width + this.terminalLength,
-			cy: 0, r: 3, fill: '#333'
+			cy: 0, r: terminalRadius, fill: '#333'
 		});
 
-		// ラベル
+		// ラベル（動的サイズ）
+		const fontSize = Math.min(this.width, this.height) * 0.3;
 		const label = this.createElement('text', {
 			x: this.terminalLength + this.width / 2,
-			y: -this.height / 2 - 5,
+			y: -this.height / 2 - fontSize / 2,
 			'text-anchor': 'middle',
 			'font-family': 'Arial',
-			'font-size': 12,
+			'font-size': fontSize,
+			'font-weight': 'bold',
 			fill: '#333'
 		});
 		label.textContent = this.value || 'R';
+
+		// 🚨 各要素の詳細ログ
+		console.log(`🎨🔧 Resistor要素作成詳細:`, {
+			line1: { x1: 0, y1: 0, x2: this.terminalLength, y2: 0, strokeWidth: 80 },
+			line2: { x1: this.terminalLength + this.width, y1: 0, x2: this.terminalLength + this.width + this.terminalLength, y2: 0 },
+			rect: { x: this.terminalLength, y: -this.height / 2, width: this.width, height: this.height },
+			zigzagPath: zigzagPath,
+			terminalRadius: terminalRadius,
+			fontSize: fontSize,
+			totalWidth: this.terminalLength + this.width + this.terminalLength,
+			totalHeight: this.height
+		});
 
 		// グループに追加
 		[line1, line2, rect, zigzag, terminal1, terminal2, label].forEach(el => {
 			group.appendChild(el);
 		});
 
+		// 🚨 グループ追加後の確認
+		console.log(`🎨📋 Resistor要素群追加完了:`, {
+			groupChildCount: group.children.length,
+			groupTransform: group.getAttribute('transform'),
+			elementsAdded: ['line1', 'line2', 'rect', 'zigzag', 'terminal1', 'terminal2', 'label']
+		});
+
 		parentSvg.appendChild(group);
+
+		// 🚨 最終確認
+		console.log(`🎨✅ Resistor描画完了:`, {
+			parentSvgChildCount: parentSvg.children.length,
+			groupBBox: this.getBoundingBoxSafe(group),
+			svgViewBox: parentSvg.getAttribute('viewBox')
+		});
+
 		return group;
 	}
 }
@@ -310,13 +480,23 @@ export class Resistor extends CircuitComponent {
 export class Inductor extends CircuitComponent {
 	public color: string;
 	public coilRadius: number;
-	public coilCount: number;
-
-	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "L") {
+	public coilCount: number; constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "L") {
 		super(x, y, rotation, value, "/svg-components/inductor2.svg");
 		this.color = "#2ecc71";
-		this.coilRadius = 12.5;
+		this.coilRadius = 200;    // 極端に大きく (150 → 200)
 		this.coilCount = 4;
+
+		// 🔍 インダクタサイズ再確認
+		console.log(`🟢⚡ Inductor作成後サイズ確認:`, {
+			width: this.width,
+			height: this.height,
+			terminalLength: this.terminalLength,
+			coilRadius: this.coilRadius,
+			coilCount: this.coilCount,
+			color: this.color,
+			coordinates: { x: this.x, y: this.y },
+			value: this.value
+		});
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
@@ -327,54 +507,64 @@ export class Inductor extends CircuitComponent {
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);
 	}
-
 	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
 
-		// 配線
+		// 🎯 動的サイズ対応 - Inductor
+		console.log(`🎨 Inductor描画開始:`, {
+			width: this.width,
+			height: this.height,
+			terminalLength: this.terminalLength,
+			coilRadius: this.coilRadius,
+			note: 'インダクタの動的描画'
+		});
+
+		// 配線（動的サイズ）
 		const line1 = this.createElement('line', {
 			x1: 0, y1: 0,
 			x2: this.terminalLength, y2: 0,
-			stroke: '#333', 'stroke-width': 2
+			stroke: '#333', 'stroke-width': 80
 		});
 
 		const line2 = this.createElement('line', {
 			x1: this.terminalLength + this.width, y1: 0,
 			x2: this.terminalLength + this.width + this.terminalLength, y2: 0,
-			stroke: '#333', 'stroke-width': 2
+			stroke: '#333', 'stroke-width': 80
 		});
 
-		// コイル
+		// コイル（動的サイズ計算）
+		const dynamicCoilRadius = this.height * 0.4; // 部品高さの40%
 		let coilPath = `M${this.terminalLength} 0`;
 		for (let i = 0; i < this.coilCount; i++) {
 			const x = this.terminalLength + (i + 1) * (this.width / this.coilCount);
-			coilPath += ` A${this.coilRadius} ${this.coilRadius} 0 0 0 ${x} 0`;
+			coilPath += ` A${dynamicCoilRadius} ${dynamicCoilRadius} 0 0 0 ${x} 0`;
 		}
-
 		const coil = this.createElement('path', {
 			d: coilPath,
 			fill: 'none',
 			stroke: this.color,
-			'stroke-width': 3
+			'stroke-width': 100
 		});
 
-		// 端子
+		// 端子（動的サイズ）
+		const terminalRadius = Math.min(this.height, this.terminalLength) * 0.4;
 		const terminal1 = this.createElement('circle', {
-			cx: 0, cy: 0, r: 3, fill: '#333'
+			cx: 0, cy: 0, r: terminalRadius, fill: '#333'
 		});
 
 		const terminal2 = this.createElement('circle', {
 			cx: this.terminalLength + this.width + this.terminalLength,
-			cy: 0, r: 3, fill: '#333'
+			cy: 0, r: terminalRadius, fill: '#333'
 		});
 
-		// ラベル
+		// ラベル（動的サイズ）
+		const fontSize = Math.min(this.width, this.height) * 0.25;
 		const label = this.createElement('text', {
 			x: this.terminalLength + this.width / 2,
-			y: -this.coilRadius - 10,
+			y: -dynamicCoilRadius - fontSize / 2,
 			'text-anchor': 'middle',
 			'font-family': 'Arial',
-			'font-size': 12,
+			'font-size': fontSize,
 			fill: '#333'
 		});
 		label.textContent = this.value || 'L';
@@ -392,13 +582,11 @@ export class Inductor extends CircuitComponent {
 export class Capacitor extends CircuitComponent {
 	public color: string;
 	public plateGap: number;
-	public plateHeight: number;
-
-	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "C") {
+	public plateHeight: number; constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "C") {
 		super(x, y, rotation, value, "/svg-components/capacitor2.svg");
 		this.color = "#9b59b6";
-		this.plateGap = 20;
-		this.plateHeight = 40;
+		this.plateGap = 200;     // 極端に大きく (100 → 200)
+		this.plateHeight = 500;  // 極端に大きく (200 → 500)
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
@@ -414,19 +602,17 @@ export class Capacitor extends CircuitComponent {
 		const group = this.createGroup(id);
 
 		const plateX1 = this.terminalLength + this.width / 2 - this.plateGap / 2;
-		const plateX2 = this.terminalLength + this.width / 2 + this.plateGap / 2;
-
-		// 配線
+		const plateX2 = this.terminalLength + this.width / 2 + this.plateGap / 2;		// 配線
 		const line1 = this.createElement('line', {
 			x1: 0, y1: 0,
 			x2: plateX1, y2: 0,
-			stroke: '#333', 'stroke-width': 2
+			stroke: '#333', 'stroke-width': 30  // さらに太く
 		});
 
 		const line2 = this.createElement('line', {
 			x1: plateX2, y1: 0,
 			x2: this.terminalLength + this.width + this.terminalLength, y2: 0,
-			stroke: '#333', 'stroke-width': 2
+			stroke: '#333', 'stroke-width': 30
 		});
 
 		// 電極板
@@ -436,7 +622,7 @@ export class Capacitor extends CircuitComponent {
 			x2: plateX1,
 			y2: this.plateHeight / 2,
 			stroke: this.color,
-			'stroke-width': 4
+			'stroke-width': 50  // さらに太く
 		});
 
 		const plate2 = this.createElement('line', {
@@ -445,26 +631,25 @@ export class Capacitor extends CircuitComponent {
 			x2: plateX2,
 			y2: this.plateHeight / 2,
 			stroke: this.color,
-			'stroke-width': 4
-		});
-
-		// 端子
+			'stroke-width': 50
+		});		// 端子
 		const terminal1 = this.createElement('circle', {
-			cx: 0, cy: 0, r: 3, fill: '#333'
+			cx: 0, cy: 0, r: 40, fill: '#333'  // さらに大きく
 		});
 
 		const terminal2 = this.createElement('circle', {
 			cx: this.terminalLength + this.width + this.terminalLength,
-			cy: 0, r: 3, fill: '#333'
+			cy: 0, r: 40, fill: '#333'
 		});
 
 		// ラベル
 		const label = this.createElement('text', {
 			x: this.terminalLength + this.width / 2,
-			y: -this.plateHeight / 2 - 10,
+			y: -this.plateHeight / 2 - 80,  // オフセット調整
 			'text-anchor': 'middle',
 			'font-family': 'Arial',
-			'font-size': 12,
+			'font-size': 120,  // さらに大きく
+			'font-weight': 'bold',
 			fill: '#333'
 		});
 		label.textContent = this.value || 'C';
@@ -492,14 +677,47 @@ export class CircuitDiagram {
 	constructor(svgElement: SVGSVGElement) {
 		this.svg = svgElement;
 		this.components = [];
-	}
-	public async addComponent(component: CircuitComponent, id?: string): Promise<SVGGElement> {
+	} public async addComponent(component: CircuitComponent, id?: string): Promise<SVGGElement> {
+		// 🚨 部品追加デバッグ - 詳細ログ
+		console.log(`📋🔧 CircuitDiagram.addComponent開始:`, {
+			componentType: component.constructor.name,
+			id: id,
+			position: { x: component.x, y: component.y },
+			size: { width: component.width, height: component.height },
+			currentComponentsCount: this.components.length,
+			svgChildrenCount: this.svg.children.length
+		});
+
 		const element = await component.render(this.svg, id);
+
+		// 🚨 要素作成完了デバッグ
+		console.log(`📋🎨 render完了:`, {
+			elementCreated: !!element,
+			elementTagName: element.tagName,
+			elementId: element.id,
+			elementTransform: element.getAttribute('transform'),
+			elementChildCount: element.children.length,
+			svgChildrenCountAfterRender: this.svg.children.length
+		});
+
 		this.components.push({
 			component,
 			element,
 			id
 		});
+
+		// 🚨 最終状態確認
+		console.log(`📋✅ addComponent完了:`, {
+			finalComponentsCount: this.components.length,
+			finalSvgChildrenCount: this.svg.children.length,
+			addedComponentData: {
+				type: component.constructor.name,
+				id: id,
+				position: { x: component.x, y: component.y },
+				elementInDOM: document.contains(element)
+			}
+		});
+
 		return element;
 	}
 
@@ -612,92 +830,89 @@ export class ComponentLibrary {
 // MOSトランジスタの基底クラス (極めてシンプルなシンボル)
 export abstract class MOSTransistor extends CircuitComponent {
 	public transistorType: 'NMOS' | 'PMOS';
-
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, transistorType: 'NMOS' | 'PMOS' = 'NMOS', value?: string, svgPath?: string) {
 		super(x, y, rotation, value, svgPath);
-		this.width = 50;
-		this.height = 50;
-		this.terminalLength = 20;
+		this.width = 250;      // 5倍スケール (50 * 5)
+		this.height = 250;     // 5倍スケール (50 * 5) 
+		this.terminalLength = 100;  // 5倍スケール (20 * 5)
 		this.transistorType = transistorType;
 	}
 
 	protected abstract renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement;
-
 	protected drawBasicStructure(group: SVGGElement): void {
-		// メインの縦線（チャネル）
+		// メインの縦線（チャネル）- 5倍スケール
 		const verticalLine = this.createElement('line', {
 			x1: 0,
-			y1: -20,
+			y1: -100,  // -20 * 5
 			x2: 0,
-			y2: 20,
+			y2: 100,   // 20 * 5
 			stroke: '#000',
-			'stroke-width': 2
+			'stroke-width': 8  // 2 * 4
 		});
 		group.appendChild(verticalLine);
 
 		// ゲート（水平線）
 		const gateLine = this.createElement('line', {
-			x1: -15,
+			x1: -75,  // -15 * 5
 			y1: 0,
-			x2: -5,
+			x2: -25,  // -5 * 5
 			y2: 0,
 			stroke: '#000',
-			'stroke-width': 2
+			'stroke-width': 8
 		});
 		group.appendChild(gateLine);
 
 		// ゲート端子線
 		const gateTerminal = this.createElement('line', {
-			x1: -15 - this.terminalLength,
+			x1: -75 - this.terminalLength,  // (-15 * 5) - terminalLength
 			y1: 0,
-			x2: -15,
+			x2: -75,
 			y2: 0,
 			stroke: '#000',
-			'stroke-width': 2
+			'stroke-width': 8
 		});
 		group.appendChild(gateTerminal);
 
 		// ドレイン接続線
 		const drainLine = this.createElement('line', {
 			x1: 0,
-			y1: -20,
-			x2: 15,
-			y2: -20,
+			y1: -100,  // -20 * 5
+			x2: 75,    // 15 * 5
+			y2: -100,
 			stroke: '#000',
-			'stroke-width': 2
-		});
-		group.appendChild(drainLine);
+			'stroke-width': 8
+		}); group.appendChild(drainLine);
 
 		// ドレイン端子線
 		const drainTerminal = this.createElement('line', {
-			x1: 15,
-			y1: -20,
-			x2: 15,
-			y2: -20 - this.terminalLength,
+			x1: 75,   // 15 * 5
+			y1: -100,
+			x2: 75,
+			y2: -100 - this.terminalLength,
 			stroke: '#000',
-			'stroke-width': 2
+			'stroke-width': 8
 		});
 		group.appendChild(drainTerminal);
 
 		// ソース接続線
 		const sourceLine = this.createElement('line', {
 			x1: 0,
-			y1: 20,
-			x2: 15,
-			y2: 20,
+			y1: 100,  // 20 * 5
+			x2: 75,   // 15 * 5
+			y2: 100,
 			stroke: '#000',
-			'stroke-width': 2
+			'stroke-width': 8
 		});
 		group.appendChild(sourceLine);
 
 		// ソース端子線
 		const sourceTerminal = this.createElement('line', {
-			x1: 15,
-			y1: 20,
-			x2: 15,
-			y2: 20 + this.terminalLength,
+			x1: 75,
+			y1: 100,
+			x2: 75,
+			y2: 100 + this.terminalLength,
 			stroke: '#000',
-			'stroke-width': 2
+			'stroke-width': 8
 		});
 		group.appendChild(sourceTerminal);
 	}
@@ -705,11 +920,10 @@ export abstract class MOSTransistor extends CircuitComponent {
 	protected drawLabels(group: SVGGElement): void {
 		// ゲートラベル
 		const gateLabel = this.createElement('text', {
-			x: -15 - this.terminalLength - 5,
-			y: 5,
-			'text-anchor': 'end',
+			x: -75 - this.terminalLength - 25,  // -15*5 - terminalLength - 5*5
+			y: 25,   // 5 * 5			'text-anchor': 'end',
 			'font-family': 'Arial, sans-serif',
-			'font-size': 12,
+			'font-size': 60,  // 12 * 5
 			fill: '#000'
 		});
 		gateLabel.textContent = 'G';
@@ -717,23 +931,22 @@ export abstract class MOSTransistor extends CircuitComponent {
 
 		// ドレインラベル
 		const drainLabel = this.createElement('text', {
-			x: 20,
-			y: -20 - this.terminalLength - 5,
+			x: 100,   // 20 * 5
+			y: -100 - this.terminalLength - 25,  // (-20 - terminalLength - 5) * 5
 			'text-anchor': 'start',
 			'font-family': 'Arial, sans-serif',
-			'font-size': 12,
+			'font-size': 60,
 			fill: '#000'
 		});
 		drainLabel.textContent = 'D';
 		group.appendChild(drainLabel);
-
 		// ソースラベル
 		const sourceLabel = this.createElement('text', {
-			x: 20,
-			y: 20 + this.terminalLength + 15,
+			x: 100,   // 20 * 5
+			y: 100 + this.terminalLength + 75,  // (20 + terminalLength + 15) * 5
 			'text-anchor': 'start',
 			'font-family': 'Arial, sans-serif',
-			'font-size': 12,
+			'font-size': 60,
 			fill: '#000'
 		});
 		sourceLabel.textContent = 'S';
@@ -743,10 +956,10 @@ export abstract class MOSTransistor extends CircuitComponent {
 		if (this.value) {
 			const valueLabel = this.createElement('text', {
 				x: 0,
-				y: 45,
+				y: 225,  // 45 * 5
 				'text-anchor': 'middle',
 				'font-family': 'Arial, sans-serif',
-				'font-size': 10,
+				'font-size': 50,  // 10 * 5
 				fill: '#666'
 			});
 			valueLabel.textContent = this.value;
