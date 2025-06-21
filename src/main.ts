@@ -2,7 +2,6 @@ import { CircuitCanvas } from './CircuitCanvas.js';
 
 class App {
 	private canvas: CircuitCanvas;
-
 	constructor() {
 		this.canvas = new CircuitCanvas('canvas');
 		this.setupFileImport();
@@ -74,13 +73,3 @@ class App {
 document.addEventListener('DOMContentLoaded', () => {
 	new App();
 });
-
-// デバッグ用のグローバル関数
-(window as any).debugApp = {
-	exportCanvas: () => {
-		const canvas = document.getElementById('canvas');
-		if (canvas) {
-			console.log(canvas.outerHTML);
-		}
-	}
-};

@@ -2,14 +2,11 @@ import { ComponentData, Point, ComponentDefinition } from './types.js';
 
 export class CircuitComponent {
 	private element: SVGGElement;
-	private deleteButton: SVGForeignObjectElement;
-	constructor(private data: ComponentData, private definition: ComponentDefinition) {
-		console.log('Creating CircuitComponent:', data.type, 'ID:', data.id); // デバッグ用
+	private deleteButton: SVGForeignObjectElement; constructor(private data: ComponentData, private definition: ComponentDefinition) {
 		this.element = this.createElement();
 		this.deleteButton = this.createDeleteButton();
 		this.updatePosition();
 		this.setupEventListeners();
-		console.log('CircuitComponent created successfully:', data.id); // デバッグ用
 	}
 
 	private createElement(): SVGGElement {
@@ -22,10 +19,8 @@ export class CircuitComponent {
 
 		return group;
 	}
-
 	private async loadSVGContent(group: SVGGElement): Promise<void> {
 		try {
-			console.log('Loading SVG:', this.definition.svgPath); // デバッグ用
 			const response = await fetch(this.definition.svgPath);
 			const svgText = await response.text();
 			const parser = new DOMParser();
@@ -44,29 +39,50 @@ export class CircuitComponent {
 				scale = Math.min(scaleX, scaleY, 0.4) * this.data.scale;
 			}
 
-			// SVGの内容を取得してグループに追加（メタデータ要素を除く）
-			const elementsToClone = svgElement.querySelectorAll('g, path, rect, circle, line, polyline, polygon, ellipse');
-			elementsToClone.forEach(element => {
-				const clonedElement = element.cloneNode(true) as SVGElement;
-				group.appendChild(clonedElement);
+			// SVGの内容を取得してグループに追加
+			// SVG全体をひとつのグループとして扱う
+			const svgGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+			// metadata, defs, namedviewなどの非表示要素を除く有効な子要素のみを取得
+			const validChildren = Array.from(svgElement.children).filter(child => {
+				const tagName = child.tagName.toLowerCase();
+				return tagName !== 'metadata' && tagName !== 'defs' &&
+					tagName !== 'namedview' && tagName !== 'sodipodi:namedview' &&
+					tagName !== 'title' && tagName !== 'desc';
 			});
 
-			// スケールを適用
-			const currentTransform = group.getAttribute('transform') || '';
-			group.setAttribute('transform', `${currentTransform} scale(${scale})`);
+			// すべての有効な子要素を一つのグループにまとめる
+			if (validChildren.length > 0) {
+				// 各有効な子要素をクローンして追加
+				validChildren.forEach((child) => {
+					const clonedElement = child.cloneNode(true) as SVGElement;
+					svgGroup.appendChild(clonedElement);
+				});
+			} else {
+				// フォールバック: 表示可能な要素を直接検索
+				const visibleElements = svgElement.querySelectorAll('path, rect, circle, line, polyline, polygon, ellipse, g');
+				visibleElements.forEach((element) => {
+					// 親がrootのSVG要素である場合のみ追加（ネストを避ける）
+					if (element.parentElement === svgElement) {
+						const clonedElement = element.cloneNode(true) as SVGElement;
+						svgGroup.appendChild(clonedElement);
+					}
+				});
+			}
 
-			// 位置と回転を更新
-			this.updateTransform();
-			console.log('SVG loaded successfully'); // デバッグ用
+			// スケールを適用
+			svgGroup.setAttribute('transform', `scale(${scale})`);
+			group.appendChild(svgGroup);
+
+			// 位置を更新（スケールは既に適用済み）
+			this.updatePosition();
 		} catch (error) {
 			console.error(`SVGの読み込みに失敗しました (${this.definition.svgPath}):`, error);
 			// フォールバック: 簡単な矩形を表示
 			this.createFallbackComponent(group);
 		}
 	}
-
 	private createFallbackComponent(group: SVGGElement): void {
-		console.log('Creating fallback component'); // デバッグ用
 		const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
 		rect.setAttribute('width', '60');
 		rect.setAttribute('height', '30');
@@ -155,24 +171,17 @@ export class CircuitComponent {
 		const gridSizeSelect = document.getElementById('grid-size') as HTMLSelectElement;
 		return parseInt(gridSizeSelect.value);
 	}
-
 	private updatePosition(): void {
-		this.element.setAttribute('transform',
-			`translate(${this.data.position.x}, ${this.data.position.y})`);
-
+		const transform = `translate(${this.data.position.x}, ${this.data.position.y}) rotate(${this.data.rotation})`;
+		this.element.setAttribute('transform', transform);
 		// 削除ボタンの位置も更新
 		this.deleteButton.setAttribute('x', `${this.data.position.x + 40}`);
 		this.deleteButton.setAttribute('y', `${this.data.position.y - 10}`);
 	}
 
-	private updateTransform(): void {
-		const transform = `translate(${this.data.position.x}, ${this.data.position.y}) rotate(${this.data.rotation})`;
-		this.element.setAttribute('transform', transform);
-	}
-
 	private rotate(): void {
 		this.data.rotation = (this.data.rotation + 90) % 360;
-		this.updateTransform();
+		this.updatePosition();
 	}
 
 	public getElement(): SVGGElement {

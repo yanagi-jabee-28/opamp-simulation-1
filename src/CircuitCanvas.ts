@@ -8,14 +8,13 @@ export class CircuitCanvas {
 	private gridSettings: GridSettings = { size: 30, visible: true };
 	private nextId = 1;
 	private isPlacing = false; // 配置中フラグを追加
-
+	private lastClickTime = 0; // 最後のクリック時刻を追加
 	constructor(canvasId: string) {
 		this.canvas = document.getElementById(canvasId) as unknown as SVGSVGElement;
 		if (!this.canvas) {
 			console.error('Canvas element not found with ID:', canvasId);
 			return;
 		}
-		console.log('Canvas found:', this.canvas); // デバッグ用
 		this.componentDefinitions = this.initializeComponentDefinitions();
 		this.setupEventListeners();
 		this.updateGrid();
@@ -60,37 +59,39 @@ export class CircuitCanvas {
 		});
 
 		return definitions;
-	}
-
-	private setupEventListeners(): void {
+	} private setupEventListeners(): void {
 		// ドラッグ&ドロップの処理
 		document.addEventListener('componentRemoved', (e) => {
 			const customEvent = e as CustomEvent;
 			this.removeComponent(customEvent.detail);
 		});
+
 		// キャンバスクリックでコンポーネントをドロップ
 		this.canvas.addEventListener('click', (e) => {
-			console.log('Canvas clicked'); // デバッグ用
+			const timestamp = Date.now();
+
+			// 短時間での重複クリックを防止
+			if (timestamp - this.lastClickTime < 200) {
+				return;
+			}
+			this.lastClickTime = timestamp;
 
 			// 既に配置処理中の場合は無視
 			if (this.isPlacing) {
-				console.log('Already placing, ignoring click'); // デバッグ用
 				return;
 			}
 
 			const activeComponent = this.getActiveComponent();
-			console.log('Active component:', activeComponent); // デバッグ用
 			if (activeComponent) {
 				this.isPlacing = true; // 配置処理開始
+
 				const point = this.getMousePosition(e);
-				console.log('Mouse position:', point); // デバッグ用
+
 				this.addComponent(activeComponent, point);
 				this.clearActiveComponent();
 
-				// 配置完了後に短時間待機してからフラグをリセット
-				setTimeout(() => {
-					this.isPlacing = false;
-				}, 100);
+				// 配置完了後に即座にフラグをリセット
+				this.isPlacing = false;
 			}
 		});
 
@@ -114,15 +115,10 @@ export class CircuitCanvas {
 		this.setupControls();
 	} private setupComponentPalette(): void {
 		const componentItems = document.querySelectorAll('.component-item');
-		console.log('Found component items:', componentItems.length); // デバッグ用
-
 		componentItems.forEach(item => {
 			item.addEventListener('click', () => {
-				console.log('Component item clicked:', item.getAttribute('data-component')); // デバッグ用
-
 				// 配置中の場合は選択をキャンセル
 				if (this.isPlacing) {
-					console.log('Currently placing, canceling selection'); // デバッグ用
 					return;
 				}
 
@@ -132,7 +128,6 @@ export class CircuitCanvas {
 				item.classList.add('selected');
 				// キャンバスの状態を変更
 				this.canvas.style.cursor = 'crosshair';
-				console.log('Component selected, cursor changed to crosshair'); // デバッグ用
 			});
 		});
 	}
@@ -147,24 +142,21 @@ export class CircuitCanvas {
 		exportBtn.addEventListener('click', () => {
 			this.exportToJSON();
 		});
-	}
-	private getActiveComponent(): ComponentType | null {
+	} private getActiveComponent(): ComponentType | null {
 		const selectedItem = document.querySelector('.component-item.selected') as HTMLElement;
-		console.log('Selected item:', selectedItem); // デバッグ用
 		if (selectedItem) {
 			const componentType = selectedItem.dataset.component as ComponentType;
-			console.log('Component type:', componentType); // デバッグ用
 			return componentType;
 		}
 		return null;
 	}
+
 	private clearActiveComponent(): void {
 		const selectedItems = document.querySelectorAll('.component-item.selected');
 		selectedItems.forEach(item => {
 			item.classList.remove('selected');
 		});
 		this.canvas.style.cursor = 'default';
-		console.log('Active component cleared'); // デバッグ用
 	}
 
 	private getMousePosition(e: MouseEvent): Point {
@@ -188,15 +180,15 @@ export class CircuitCanvas {
 	private snapToGrid(value: number): number {
 		return Math.round(value / this.gridSettings.size) * this.gridSettings.size;
 	} public addComponent(type: ComponentType, position: Point): void {
-		console.log('Adding component:', type, 'at position:', position, 'Total components before:', this.components.size); // デバッグ用
 		const definition = this.componentDefinitions.get(type);
 		if (!definition) {
-			console.error('Definition not found for type:', type); // デバッグ用
+			console.error(`Definition not found for type:`, type);
 			return;
 		}
 
+		const componentId = `component_${this.nextId++}`;
 		const componentData: ComponentData = {
-			id: `component_${this.nextId++}`,
+			id: componentId,
 			type,
 			position: {
 				x: this.snapToGrid(position.x),
@@ -206,15 +198,11 @@ export class CircuitCanvas {
 			scale: 1.0 // SVGファイルを直接使用するのでスケールを1.0に
 		};
 
-		console.log('Component data:', componentData); // デバッグ用
-
 		const component = new CircuitComponent(componentData, definition);
 		this.components.set(componentData.id, component);
 
 		this.canvas.appendChild(component.getElement());
 		this.canvas.appendChild(component.getDeleteButton());
-
-		console.log('Component added successfully. Total components now:', this.components.size); // デバッグ用
 	}
 
 	public removeComponent(id: string): void {
