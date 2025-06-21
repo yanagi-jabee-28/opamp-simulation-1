@@ -1,12 +1,19 @@
 import { ComponentData, Point, ComponentDefinition } from './types.js';
+import { debugComponent, debugSVG, debugPositioning } from './debug.js';
 
 export class CircuitComponent {
 	private element: SVGGElement;
-	private deleteButton: SVGForeignObjectElement; constructor(private data: ComponentData, private definition: ComponentDefinition) {
+	private deleteButton: SVGForeignObjectElement;
+
+	constructor(private data: ComponentData, private definition: ComponentDefinition) {
+		debugComponent(`Creating CircuitComponent: ${data.type} ID: ${data.id}`);
+
 		this.element = this.createElement();
 		this.deleteButton = this.createDeleteButton();
 		this.updatePosition();
 		this.setupEventListeners();
+
+		debugComponent(`CircuitComponent created successfully: ${data.id}`);
 	}
 
 	private createElement(): SVGGElement {
@@ -18,9 +25,10 @@ export class CircuitComponent {
 		this.loadSVGContent(group);
 
 		return group;
-	}
-	private async loadSVGContent(group: SVGGElement): Promise<void> {
+	} private async loadSVGContent(group: SVGGElement): Promise<void> {
 		try {
+			debugSVG(`Loading SVG: ${this.definition.svgPath}`);
+
 			const response = await fetch(this.definition.svgPath);
 			const svgText = await response.text();
 			const parser = new DOMParser();
@@ -51,20 +59,25 @@ export class CircuitComponent {
 					tagName !== 'title' && tagName !== 'desc';
 			});
 
+			debugSVG(`Found ${validChildren.length} valid children to clone`);
+
 			// すべての有効な子要素を一つのグループにまとめる
 			if (validChildren.length > 0) {
 				// 各有効な子要素をクローンして追加
-				validChildren.forEach((child) => {
+				validChildren.forEach((child, index) => {
+					debugSVG(`Cloning child ${index}: ${child.tagName}`);
 					const clonedElement = child.cloneNode(true) as SVGElement;
 					svgGroup.appendChild(clonedElement);
 				});
 			} else {
 				// フォールバック: 表示可能な要素を直接検索
 				const visibleElements = svgElement.querySelectorAll('path, rect, circle, line, polyline, polygon, ellipse, g');
-				visibleElements.forEach((element) => {
+				debugSVG(`Fallback: Found ${visibleElements.length} visible elements`);
+				visibleElements.forEach((element, index) => {
 					// 親がrootのSVG要素である場合のみ追加（ネストを避ける）
 					if (element.parentElement === svgElement) {
 						const clonedElement = element.cloneNode(true) as SVGElement;
+						debugSVG(`Cloning fallback element ${index}: ${element.tagName}`);
 						svgGroup.appendChild(clonedElement);
 					}
 				});
@@ -76,6 +89,7 @@ export class CircuitComponent {
 
 			// 位置を更新（スケールは既に適用済み）
 			this.updatePosition();
+			debugSVG('SVG loaded successfully');
 		} catch (error) {
 			console.error(`SVGの読み込みに失敗しました (${this.definition.svgPath}):`, error);
 			// フォールバック: 簡単な矩形を表示
@@ -170,17 +184,19 @@ export class CircuitComponent {
 	private getGridSize(): number {
 		const gridSizeSelect = document.getElementById('grid-size') as HTMLSelectElement;
 		return parseInt(gridSizeSelect.value);
-	}
-	private updatePosition(): void {
+	} private updatePosition(): void {
 		const transform = `translate(${this.data.position.x}, ${this.data.position.y}) rotate(${this.data.rotation})`;
 		this.element.setAttribute('transform', transform);
 		// 削除ボタンの位置も更新
 		this.deleteButton.setAttribute('x', `${this.data.position.x + 40}`);
 		this.deleteButton.setAttribute('y', `${this.data.position.y - 10}`);
+
+		debugPositioning(`Position updated: ${this.data.id} at (${this.data.position.x}, ${this.data.position.y}) rotation: ${this.data.rotation}°`);
 	}
 
 	private rotate(): void {
 		this.data.rotation = (this.data.rotation + 90) % 360;
+		debugPositioning(`Component rotated: ${this.data.id} to ${this.data.rotation}°`);
 		this.updatePosition();
 	}
 

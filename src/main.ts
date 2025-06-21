@@ -1,11 +1,16 @@
 import { CircuitCanvas } from './CircuitCanvas.js';
+import { debugUI } from './debug.js';
+import './debug.js'; // デバッグシステムを初期化
 
 class App {
 	private canvas: CircuitCanvas;
+
 	constructor() {
+		debugUI('Initializing App...');
 		this.canvas = new CircuitCanvas('canvas');
 		this.setupFileImport();
 		this.setupKeyboardShortcuts();
+		debugUI('App initialized successfully');
 	}
 
 	private setupFileImport(): void {
@@ -71,5 +76,6 @@ class App {
 
 // アプリケーションの初期化
 document.addEventListener('DOMContentLoaded', () => {
+	debugUI('DOMContentLoaded event fired');
 	new App();
 });
