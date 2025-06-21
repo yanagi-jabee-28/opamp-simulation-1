@@ -40,102 +40,96 @@ export interface SVGElementProps {
 	href?: string;
 	use?: string;
 	preserveAspectRatio?: string;
+	opacity?: string | number;
 }
 
 // SVGファイルを読み込むためのユーティリティ関数
 export async function loadSVGFromFile(svgPath: string): Promise<SVGElement | null> {
 	try {
-		// 🚨 SVGファイル読み込みデバッグ
-		console.log(`📂🔍 SVGファイル読み込み開始:`, { svgPath });
-
 		const response = await fetch(svgPath);
 
-		console.log(`📂📡 fetch結果:`, {
-			ok: response.ok,
-			status: response.status,
-			statusText: response.statusText,
-			url: response.url
-		});
-
 		if (!response.ok) {
-			console.warn(`📂❌ SVGファイルの読み込みに失敗:`, {
-				svgPath,
-				status: response.status,
-				statusText: response.statusText
-			});
 			return null;
 		}
 
 		const svgText = await response.text();
-		console.log(`📂📄 SVGテキスト取得:`, {
-			svgPath,
-			textLength: svgText.length,
-			textPreview: svgText.substring(0, 200) + '...'
-		});
-
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(svgText, 'image/svg+xml');
 		const svgElement = doc.querySelector('svg');
 
-		console.log(`📂🎨 SVG要素パース結果:`, {
-			svgPath,
-			svgElementFound: !!svgElement,
-			svgChildCount: svgElement?.children.length || 0,
-			svgViewBox: svgElement?.getAttribute('viewBox'),
-			svgWidth: svgElement?.getAttribute('width'),
-			svgHeight: svgElement?.getAttribute('height')
-		});
-
 		return svgElement;
 	} catch (error) {
-		console.error(`📂💥 SVGファイルの読み込みエラー:`, { svgPath, error });
 		return null;
 	}
 }
 
-// SVG内容を直接埋め込むためのユーティリティ関数
+// SVG内容を直接埋め込むためのユーティリティ関数（改良版）
 export async function embedSVGContent(svgPath: string, targetGroup: SVGGElement, scale: number = 1): Promise<boolean> {
 	try {
-		// 🚨 SVG埋め込みデバッグ
-		console.log(`🎨📂 SVG埋め込み開始:`, { svgPath, scale, targetGroupId: targetGroup.id });
-
+		console.log(`🎨 SVG埋め込み開始: ${svgPath}, scale: ${scale}`);
 		const svgElement = await loadSVGFromFile(svgPath);
 		if (!svgElement) {
-			console.log(`🎨❌ SVG要素の取得に失敗:`, { svgPath });
+			console.warn(`🎨❌ SVG要素取得失敗: ${svgPath}`);
 			return false;
 		}
+		// 描画要素のみを抽出してクリーンアップ
+		const extractDrawingElements = (element: Element): SVGElement[] => {
+			const drawingElements: SVGElement[] = [];
 
-		// SVGの内容をグループに移植
-		const elements = Array.from(svgElement.children);
-		console.log(`🎨🔧 SVG要素移植開始:`, {
-			svgPath,
-			elementsCount: elements.length,
-			elementTypes: elements.map(el => el.tagName)
-		});
+			// 実際の描画要素のタグ名リスト
+			const drawingTags = ['path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text'];
 
-		elements.forEach((child, index) => {
-			const clonedChild = child.cloneNode(true) as SVGElement;
-			if (scale !== 1) {
-				const currentTransform = clonedChild.getAttribute('transform') || '';
-				clonedChild.setAttribute('transform', `${currentTransform} scale(${scale})`);
+			if (drawingTags.includes(element.tagName.toLowerCase())) {
+				const cleanElement = element.cloneNode(true) as SVGElement;
+				// transform属性を完全に除去してクリーンな状態にする
+				cleanElement.removeAttribute('transform');
+				drawingElements.push(cleanElement);
 			}
-			targetGroup.appendChild(clonedChild);
 
-			console.log(`🎨➕ 要素${index + 1}追加:`, {
-				tagName: clonedChild.tagName,
-				transform: clonedChild.getAttribute('transform'),
-				id: clonedChild.id
+			// 子要素を再帰的に処理（g、defsなどのコンテナ要素も含む）
+			Array.from(element.children).forEach(child => {
+				drawingElements.push(...extractDrawingElements(child));
+			});
+
+			return drawingElements;
+		};
+		const drawingElements = extractDrawingElements(svgElement);
+		console.log(`🎨 描画要素抽出: ${drawingElements.length}個の要素を発見`);
+
+		// 各描画要素の詳細を表示
+		drawingElements.forEach((element, index) => {
+			console.log(`🎨 要素${index + 1}: ${element.tagName}`, {
+				attributes: Array.from(element.attributes).map(attr => `${attr.name}="${attr.value}"`),
+				textContent: element.textContent?.trim() || 'なし'
 			});
 		});
 
-		console.log(`🎨✅ SVG埋め込み完了:`, {
-			svgPath,
-			targetGroupChildCount: targetGroup.children.length
+		if (drawingElements.length === 0) {
+			console.warn(`🎨⚠️ 描画要素なし: ${svgPath}`);
+			return false;
+		}
+
+		// スケールアップした描画要素を追加
+		drawingElements.forEach((element) => {
+			// スケール変換を適用
+			const currentTransform = element.getAttribute('transform') || '';
+			element.setAttribute('transform', `${currentTransform} scale(${scale})`);
+
+			// 色を強調してより見やすく
+			if (element.getAttribute('stroke') && element.getAttribute('stroke') !== 'none') {
+				element.setAttribute('stroke-width', String(parseFloat(element.getAttribute('stroke-width') || '1') * 2));
+			}
+			if (element.getAttribute('fill') && element.getAttribute('fill') !== 'none') {
+				element.setAttribute('opacity', '0.8');
+			}
+
+			targetGroup.appendChild(element);
 		});
 
+		console.log(`🎨✅ SVG埋め込み完了: ${svgPath}, 追加要素数: ${drawingElements.length}`);
 		return true;
 	} catch (error) {
-		console.error(`🎨💥 SVG埋め込みエラー:`, { svgPath, error });
+		console.error(`🎨💥 SVG埋め込みエラー: ${svgPath}`, error);
 		return false;
 	}
 }
@@ -154,23 +148,12 @@ export abstract class CircuitComponent {
 		this.x = x;
 		this.y = y;
 		this.rotation = rotation;
-		// 🚀 極端に大きくする - グリッドサイズ(500px)を完全に上回る巨大サイズ
-		this.width = 1200;      // 500pxグリッドの2.4倍
-		this.height = 800;      // 500pxグリッドの1.6倍  
-		this.terminalLength = 200;   // 端子も極大
+		// 巨大サイズで素子を表示
+		this.width = 1200;
+		this.height = 800;
+		this.terminalLength = 200;
 		this.value = value;
 		this.svgPath = svgPath;
-
-		// 🔍 強化デバッグログ - 確実にサイズ確認
-		console.log(`🚀📐 部品作成（超極大サイズ確定）:`, {
-			type: this.constructor.name,
-			coordinates: { x: this.x, y: this.y },
-			size: { width: this.width, height: this.height },
-			terminalLength: this.terminalLength,
-			value: this.value,
-			gridNote: '500pxグリッドを完全に覆う巨大サイズ',
-			timestamp: new Date().toISOString()
-		});
 	}
 
 	protected applyTransform(element: SVGGElement): SVGGElement {
@@ -202,18 +185,18 @@ export abstract class CircuitComponent {
 			}
 		});
 		return element;
-	}
-	// フォールバック要素を作成
+	}	// フォールバック要素を作成（革新的サイズ）
 	protected createFallbackElement(): SVGElement {
 		const rect = this.createElement('rect', {
-			x: -30,
-			y: -15,
-			width: 60,
-			height: 30,
-			fill: '#f0f0f0',
-			stroke: '#999',
-			'stroke-width': 1,
-			'stroke-dasharray': '5,5'
+			x: -this.width / 2,
+			y: -this.height / 2,
+			width: this.width,
+			height: this.height,
+			fill: '#ffeb3b',
+			stroke: '#ff5722',
+			'stroke-width': 20,
+			'stroke-dasharray': '50,25',
+			opacity: 0.9
 		});
 		return rect;
 	}
@@ -231,79 +214,124 @@ export abstract class CircuitComponent {
 			console.warn('BoundingBox取得失敗:', error);
 			return { x: 0, y: 0, width: 0, height: 0, error: String(error) };
 		}
-	}
-	// SVG直接埋め込みを使った描画
+	}	// SVG直接埋め込みを使った描画
 	protected async renderFromSVG(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
 		const group = this.createGroup(id);
-
-		// 🚨 SVG描画デバッグ - 詳細ログ
-		console.log(`🎨📐 SVG描画開始:`, {
-			component: this.constructor.name,
-			svgPath: this.svgPath,
-			id: id,
-			transform: group.getAttribute('transform'),
-			position: { x: this.x, y: this.y },
-			size: { width: this.width, height: this.height },
-			value: this.value
-		});
+		console.log(`🎨 ${this.constructor.name} SVG描画開始: ${this.svgPath}`);
 
 		if (this.svgPath) {
-			const success = await embedSVGContent(this.svgPath, group, 1.0);
+			// SVGを部品サイズにスケールアップ
+			const targetWidth = this.width;
+			const targetHeight = this.height;
 
-			// 🚨 SVG埋め込み結果デバッグ
-			console.log(`🎨📂 SVG埋め込み結果:`, {
-				success: success,
-				svgPath: this.svgPath,
-				groupChildCount: group.children.length,
-				groupBBox: this.getBoundingBoxSafe(group)
-			});
+			// SVGをロードしてサイズを確認
+			const svgElement = await loadSVGFromFile(this.svgPath);
+			if (svgElement) {
+				const originalViewBox = svgElement.getAttribute('viewBox');
 
-			if (!success) {
-				// フォールバック描画
-				console.log(`🚨 SVG読み込み失敗 - フォールバック描画実行`);
-				group.appendChild(this.createFallbackElement());
+				// viewBoxから実際のサイズを計算
+				let svgWidth = 20; // デフォルト値
+				let svgHeight = 20; // デフォルト値
+
+				if (originalViewBox) {
+					const viewBoxParts = originalViewBox.split(' ');
+					if (viewBoxParts.length >= 4) {
+						svgWidth = parseFloat(viewBoxParts[2]);
+						svgHeight = parseFloat(viewBoxParts[3]);
+					}
+				}
+
+				// スケール比率を計算（部品サイズに合わせる）
+				const scaleX = targetWidth / svgWidth;
+				const scaleY = targetHeight / svgHeight;
+				const scale = Math.min(scaleX, scaleY) * 5; // 5倍調整
+
+				console.log(`🎨 ${this.constructor.name} スケール計算: ${scale.toFixed(2)}x`); const success = await embedSVGContent(this.svgPath, group, scale);
+
+				if (!success || group.children.length === 0) {
+					console.log(`🎨 ${this.constructor.name} フォールバック描画実行`);
+					// フォールバック：確実に見える巨大素子を描画
+					while (group.firstChild) {
+						group.removeChild(group.firstChild);
+					}
+
+					// 巨大で確実に見える矩形を描画
+					const visibleRect = this.createElement('rect', {
+						x: -targetWidth / 2,
+						y: -targetHeight / 2,
+						width: targetWidth,
+						height: targetHeight,
+						fill: '#ff9800',
+						stroke: '#e65100',
+						'stroke-width': 50,
+						opacity: 0.9
+					});
+					group.appendChild(visibleRect);
+
+					// 部品名を巨大に表示
+					const nameLabel = this.createElement('text', {
+						x: 0,
+						y: 0,
+						'text-anchor': 'middle',
+						'font-family': 'Arial',
+						'font-size': targetHeight * 0.4,
+						'font-weight': 'bold',
+						fill: '#fff',
+						stroke: '#000',
+						'stroke-width': 5
+					});
+					nameLabel.textContent = this.constructor.name;
+					group.appendChild(nameLabel);
+				} else {
+					console.log(`🎨 ${this.constructor.name} SVG描画成功: ${group.children.length}個の要素`);
+				}
+			} else {
+				// SVG読み込み失敗時のフォールバック
+				const fallbackRect = this.createElement('rect', {
+					x: -targetWidth / 2,
+					y: -targetHeight / 2,
+					width: targetWidth,
+					height: targetHeight,
+					fill: '#ff6b35',
+					stroke: '#333',
+					'stroke-width': 50,
+					opacity: 0.8
+				});
+				group.appendChild(fallbackRect);
 			}
 
-			// 値のラベルを追加
+			// 値のラベルを追加（巨大サイズ）
 			if (this.value) {
 				const label = this.createElement('text', {
 					x: 0,
-					y: 25,
+					y: targetHeight / 2 + 100,
 					'text-anchor': 'middle',
 					'font-family': 'Arial',
-					'font-size': 10,
+					'font-size': 200,
+					'font-weight': 'bold',
 					fill: '#333'
 				});
 				label.textContent = this.value;
 				group.appendChild(label);
 			}
 
-			// 選択状態の可視化
+			// 選択状態の可視化（巨大サイズ）
 			if (this.isSelected) {
 				const selectionRect = this.createElement('rect', {
-					x: -35,
-					y: -20,
-					width: 70,
-					height: 40,
+					x: -targetWidth / 2 - 50,
+					y: -targetHeight / 2 - 50,
+					width: targetWidth + 100,
+					height: targetHeight + 100,
 					fill: 'none',
 					stroke: '#007acc',
-					'stroke-width': 2,
-					'stroke-dasharray': '5,5'
+					'stroke-width': 20,
+					'stroke-dasharray': '50,25'
 				});
 				group.appendChild(selectionRect);
 			}
 		}
 
 		parentSvg.appendChild(group);
-
-		// 🚨 最終的な要素の描画確認
-		console.log(`🎨✅ SVG描画完了:`, {
-			component: this.constructor.name,
-			finalChildCount: group.children.length,
-			parentSvgChildCount: parentSvg.children.length,
-			groupBBox: this.getBoundingBoxSafe(group),
-			svgViewBox: parentSvg.getAttribute('viewBox')
-		});
 
 		return group;
 	}
@@ -338,17 +366,6 @@ export class Resistor extends CircuitComponent {
 	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "R") {
 		super(x, y, rotation, value, "/svg-components/resistor2.svg");
 		this.color = "#e74c3c";
-
-		// 🔍 抵抗器サイズ再確認 - 確実に極大サイズを維持
-		console.log(`🔴⚡ Resistor作成後サイズ確認:`, {
-			width: this.width,
-			height: this.height,
-			terminalLength: this.terminalLength,
-			color: this.color,
-			coordinates: { x: this.x, y: this.y },
-			value: this.value,
-			note: '継承後のサイズが正しく設定されているか確認'
-		});
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
@@ -360,18 +377,6 @@ export class Resistor extends CircuitComponent {
 		return this.renderFallback(parentSvg, id);
 	} protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
-
-		// 🎯 動的サイズ対応 - 部品サイズに合わせて全要素をスケーリング
-		console.log(`🎨🔴 Resistor描画開始:`, {
-			width: this.width,
-			height: this.height,
-			terminalLength: this.terminalLength,
-			color: this.color,
-			position: { x: this.x, y: this.y },
-			rotation: this.rotation,
-			value: this.value,
-			note: '実際の描画に使用するサイズ'
-		});
 
 		// 配線（極太、実際のterminalLengthを使用）
 		const line1 = this.createElement('line', {
@@ -397,7 +402,7 @@ export class Resistor extends CircuitComponent {
 			'stroke-width': 80
 		});
 
-		// 🚀 ジグザグパターン（動的サイズ計算）
+		// ジグザグパターン（動的サイズ計算）
 		const zigzagSteps = 6; // ジグザグの段数
 		const stepWidth = this.width / zigzagSteps; // 各段の幅
 		const zigzagHeight = this.height * 0.6; // ジグザグの高さ（部品の60%）
@@ -480,23 +485,13 @@ export class Resistor extends CircuitComponent {
 export class Inductor extends CircuitComponent {
 	public color: string;
 	public coilRadius: number;
-	public coilCount: number; constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "L") {
+	public coilCount: number;
+
+	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "L") {
 		super(x, y, rotation, value, "/svg-components/inductor2.svg");
 		this.color = "#2ecc71";
-		this.coilRadius = 200;    // 極端に大きく (150 → 200)
+		this.coilRadius = 200;
 		this.coilCount = 4;
-
-		// 🔍 インダクタサイズ再確認
-		console.log(`🟢⚡ Inductor作成後サイズ確認:`, {
-			width: this.width,
-			height: this.height,
-			terminalLength: this.terminalLength,
-			coilRadius: this.coilRadius,
-			coilCount: this.coilCount,
-			color: this.color,
-			coordinates: { x: this.x, y: this.y },
-			value: this.value
-		});
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
@@ -506,18 +501,8 @@ export class Inductor extends CircuitComponent {
 		}
 		// フォールバック: 従来の描画方式
 		return this.renderFallback(parentSvg, id);
-	}
-	protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
+	} protected renderFallback(parentSvg: SVGSVGElement, id?: string): SVGGElement {
 		const group = this.createGroup(id);
-
-		// 🎯 動的サイズ対応 - Inductor
-		console.log(`🎨 Inductor描画開始:`, {
-			width: this.width,
-			height: this.height,
-			terminalLength: this.terminalLength,
-			coilRadius: this.coilRadius,
-			note: 'インダクタの動的描画'
-		});
 
 		// 配線（動的サイズ）
 		const line1 = this.createElement('line', {
@@ -582,11 +567,13 @@ export class Inductor extends CircuitComponent {
 export class Capacitor extends CircuitComponent {
 	public color: string;
 	public plateGap: number;
-	public plateHeight: number; constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "C") {
+	public plateHeight: number;
+
+	constructor(x: number = 0, y: number = 0, rotation: number = 0, value: string = "C") {
 		super(x, y, rotation, value, "/svg-components/capacitor2.svg");
 		this.color = "#9b59b6";
-		this.plateGap = 200;     // 極端に大きく (100 → 200)
-		this.plateHeight = 500;  // 極端に大きく (200 → 500)
+		this.plateGap = 200;
+		this.plateHeight = 500;
 	}
 
 	public async render(parentSvg: SVGSVGElement, id?: string): Promise<SVGGElement> {
@@ -678,44 +665,12 @@ export class CircuitDiagram {
 		this.svg = svgElement;
 		this.components = [];
 	} public async addComponent(component: CircuitComponent, id?: string): Promise<SVGGElement> {
-		// 🚨 部品追加デバッグ - 詳細ログ
-		console.log(`📋🔧 CircuitDiagram.addComponent開始:`, {
-			componentType: component.constructor.name,
-			id: id,
-			position: { x: component.x, y: component.y },
-			size: { width: component.width, height: component.height },
-			currentComponentsCount: this.components.length,
-			svgChildrenCount: this.svg.children.length
-		});
-
 		const element = await component.render(this.svg, id);
-
-		// 🚨 要素作成完了デバッグ
-		console.log(`📋🎨 render完了:`, {
-			elementCreated: !!element,
-			elementTagName: element.tagName,
-			elementId: element.id,
-			elementTransform: element.getAttribute('transform'),
-			elementChildCount: element.children.length,
-			svgChildrenCountAfterRender: this.svg.children.length
-		});
 
 		this.components.push({
 			component,
 			element,
 			id
-		});
-
-		// 🚨 最終状態確認
-		console.log(`📋✅ addComponent完了:`, {
-			finalComponentsCount: this.components.length,
-			finalSvgChildrenCount: this.svg.children.length,
-			addedComponentData: {
-				type: component.constructor.name,
-				id: id,
-				position: { x: component.x, y: component.y },
-				elementInDOM: document.contains(element)
-			}
 		});
 
 		return element;

@@ -109,46 +109,11 @@ const CircuitEditor: React.FC<CircuitEditorProps> = ({ className = '' }) => {
 			component.x = Math.round(x / 500) * 500; // グリッドスナップ（500px間隔）
 			component.y = Math.round(y / 500) * 500;
 
-			// 🚨 部品配置デバッグ - 詳細情報
-			console.log(`🔧🎯 部品配置デバッグ（詳細）:`, {
-				type: selectedComponentType,
-				clickPosition: { clientX, clientY, rawX: x, rawY: y },
-				snappedPosition: { x: component.x, y: component.y },
-				componentSize: { width: component.width, height: component.height },
-				terminalLength: component.terminalLength,
-				viewBox: { x: viewBoxX, y: viewBoxY, width: viewBoxWidth, height: viewBoxHeight },
-				svgRect: rect,
-				グリッド間隔: '500px'
-			});
-
 			const id = `${selectedComponentType}_${Date.now()}_${componentCounter}`;
 
-			// 🚨 部品追加前後の状態確認
-			const beforeCount = circuitDiagram.components.length;
-			const beforeSvgChildren = svgRef.current?.children.length || 0;
-
-			console.log(`🔧📋 部品追加前の状態:`, {
-				circuitComponentsCount: beforeCount,
-				svgChildrenCount: beforeSvgChildren,
-				svgViewBox: svgRef.current?.getAttribute('viewBox')
-			});
-
 			// 部品を回路図に追加
-			circuitDiagram.addComponent(component, id).then((addedElement) => {
-				const afterCount = circuitDiagram.components.length;
-				const afterSvgChildren = svgRef.current?.children.length || 0;
-
-				console.log(`🔧✅ 部品追加完了:`, {
-					id: id,
-					beforeCount,
-					afterCount,
-					beforeSvgChildren,
-					afterSvgChildren,
-					addedElement: addedElement,
-					elementTagName: addedElement.tagName,
-					elementTransform: addedElement.getAttribute('transform'),
-					elementChildCount: addedElement.children.length
-				});
+			circuitDiagram.addComponent(component, id).then(() => {
+				setComponentCounter(prev => prev + 1);
 			});
 
 			setStatusMessage(`${selectedComponentType}を配置しました (${component.x}, ${component.y}) - サイズ: ${component.width}x${component.height}`);
