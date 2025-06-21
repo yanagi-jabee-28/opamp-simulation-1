@@ -183,24 +183,34 @@ export class CircuitCanvas {
 		});
 		this.canvas.style.cursor = 'default';
 		debugEvents('Active component cleared');
-	}
-
-	private getMousePosition(e: MouseEvent): Point {
+	}	private getMousePosition(e: MouseEvent): Point {
 		const rect = this.canvas.getBoundingClientRect();
 		const x = e.clientX - rect.left;
 		const y = e.clientY - rect.top;
 
-		// SVGの座標系に変換
-		const svgPoint = this.canvas.createSVGPoint();
-		svgPoint.x = x;
-		svgPoint.y = y;
-		const transformedPoint = svgPoint.matrixTransform(this.canvas.getScreenCTM()?.inverse());
+		debugEvents(`Raw mouse position: client(${e.clientX}, ${e.clientY}), canvas offset(${rect.left}, ${rect.top}), relative(${x}, ${y})`);
+
+		// viewBoxを取得してスケールを計算
+		const viewBox = this.canvas.viewBox.baseVal;
+		const scaleX = viewBox.width / rect.width;
+		const scaleY = viewBox.height / rect.height;
+
+		debugEvents(`ViewBox: ${viewBox.width}x${viewBox.height}, Canvas: ${rect.width}x${rect.height}, Scale: ${scaleX}x${scaleY}`);
+
+		// SVG座標系に変換
+		const svgX = x * scaleX + viewBox.x;
+		const svgY = y * scaleY + viewBox.y;
+
+		debugEvents(`SVG coordinates: (${svgX}, ${svgY})`);
 
 		// グリッドにスナップ
-		return {
-			x: this.snapToGrid(transformedPoint.x),
-			y: this.snapToGrid(transformedPoint.y)
+		const snappedPoint = {
+			x: this.snapToGrid(svgX),
+			y: this.snapToGrid(svgY)
 		};
+		
+		debugEvents(`Final snapped position: (${snappedPoint.x}, ${snappedPoint.y})`);
+		return snappedPoint;
 	}
 
 	private snapToGrid(value: number): number {
