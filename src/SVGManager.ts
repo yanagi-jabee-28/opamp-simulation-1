@@ -30,8 +30,6 @@ export class SVGManager {
 	}	/**
 	 * SVGテキストから使用可能な要素を作成（キャッシュ使用）
 	 */	createSvgElement(componentType: ComponentType, svgText: string, scale: number = 1.0): SVGGElement {
-		console.log(`🔧 SVGManager.createSvgElement: ${componentType}, scale=${scale}`);
-
 		// キャッシュは使わず、常に新しい要素を作成して正確なスケール計算を行う
 		const parser = new DOMParser();
 		const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
@@ -49,27 +47,62 @@ export class SVGManager {
 			adjustedScale = this.calculateScale(svgElement, scale);
 		}
 
-		console.log(`📏 Scale calculation: baseScale=${scale}, finalScale=${adjustedScale}`);
-
 		// 有効な子要素を取得してクローン
 		this.cloneValidChildren(svgElement, svgGroup);
 
-		// スケールを適用
-		svgGroup.setAttribute('transform', `scale(${adjustedScale})`);
-		console.log(`🎯 Applied transform: scale(${adjustedScale})`);
+		// 端子の中心をグリッドに合わせるためのオフセット計算
+		let offsetX = 0, offsetY = 0;
+
+		// 既に取得済みのviewBoxから高さを取得
+		const viewBox = svgElement.getAttribute('viewBox');
+		if (viewBox) {
+			const [, , , height] = viewBox.split(' ').map(Number);
+
+			if (componentType === 'inductor') {
+				// インダクタ：元の高さの半分だけ下にオフセット（スケール前）
+				offsetY = height / 2;
+			} else if (componentType === 'nmos' || componentType === 'pmos') {
+				// MOSトランジスタ：元の高さの半分だけ下にオフセット（スケール前）
+				offsetY = height / 2;
+			}
+		}
+		// スケールとオフセットを適用（translate を先に適用してからscale）
+		const transform = offsetX !== 0 || offsetY !== 0
+			? `translate(${offsetX * adjustedScale}, ${offsetY * adjustedScale}) scale(${adjustedScale})`
+			: `scale(${adjustedScale})`;
+
+		svgGroup.setAttribute('transform', transform);
+
+		// 位置関連のデバッグのみ
+		console.log(`🎯 Position Debug - Component: ${componentType}, Transform: ${transform}, Scale: ${adjustedScale}, OffsetY: ${offsetY}`);
 
 		return svgGroup;
-	}/**
-	 * プレビュー用の要素を作成（実配置と同じスケール使用）
-	 */	createPreviewElement(componentType: ComponentType, svgText: string, scale: number = 1.0): SVGGElement {
-		console.log(`🎭 Creating preview element for ${componentType} with scale=${scale}`);
+	}	/**
+	 * プレビュー用の要素を作成（シンプルな表示）
+	 */
+	createPreviewElement(componentType: ComponentType, svgText: string, scale: number = 0.4): SVGGElement {
+		// プレビュー用のグループ要素を作成
+		const svgGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+		svgGroup.classList.add('component-preview');
 
-		// プレビューはキャッシュを使わず、常に実配置と同じ計算を行う
-		const element = this.createSvgElement(componentType, svgText, scale);
-		element.classList.add('component-preview');
-		console.log(`✨ Created new preview element for ${componentType} with calculated scale`);
+		// SVGコンテンツをパース
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(svgText, 'image/svg+xml');
+		const svgElement = doc.documentElement;
 
-		return element;
+		// すべての子要素を追加（シンプルにコピーのみ）
+		while (svgElement.firstChild) {
+			const child = document.importNode(svgElement.firstChild, true);
+			svgGroup.appendChild(child);
+		}
+
+		// プレビューには統一スケールのみ適用（位置オフセットなし）
+		svgGroup.setAttribute('transform', `scale(${scale})`);
+
+		// プレビュー作成時のデバッグ
+		console.log(`🎭 Preview Created - Component: ${componentType}, Scale: ${scale}`);
+
+		return svgGroup;
 	}
 
 	/**
@@ -99,29 +132,29 @@ export class SVGManager {
 		return group;
 	}	/**
 	 * SVGの適切なスケールを計算（グリッドサイズ20pxに基づく統一的な計算）
-	 */
-	private calculateScale(svgElement: SVGSVGElement, baseScale: number): number {
+	 */	private calculateScale(svgElement: SVGSVGElement, baseScale: number): number {
 		const viewBox = svgElement.getAttribute('viewBox');
-		console.log(`📐 calculateScale: viewBox="${viewBox}", baseScale=${baseScale}`);
 
 		if (!viewBox) {
-			console.log(`⚠️ No viewBox found, returning baseScale=${baseScale}`);
 			return baseScale;
 		}
 		const [, , width, height] = viewBox.split(' ').map(Number);
 		const gridSize = 20; // グリッドサイズ
 
-		// 新しいSVGサイズに基づく目標サイズ（グリッド単位）
+		// MOSトランジスタの端子位置に合わせた目標サイズ（グリッド単位）
+		// MOSトランジスタ端子間隔を基準とする
 		let targetWidth, targetHeight;
 
 		if (height <= 60) {
-			// インダクタ（200mm × 50mm）：幅6グリッド（120px）、高さ1.5グリッド（30px）
-			targetWidth = gridSize * 6;   // 120px
-			targetHeight = gridSize * 1.5; // 30px
+			// インダクタ（200mm × 50mm）：端子位置をMOSに合わせる
+			// 幅4グリッド（80px）、高さ1グリッド（20px）
+			targetWidth = gridSize * 4;  // 80px
+			targetHeight = gridSize * 1; // 20px
 		} else if (height <= 120) {
-			// 抵抗器・コンデンサ（200mm × 100mm）：幅6グリッド（120px）、高さ3グリッド（60px）
-			targetWidth = gridSize * 6;  // 120px
-			targetHeight = gridSize * 3; // 60px
+			// 抵抗器・コンデンサ（200mm × 100mm）：端子位置をMOSに合わせる
+			// 幅4グリッド（80px）、高さ2グリッド（40px）
+			targetWidth = gridSize * 4;  // 80px
+			targetHeight = gridSize * 2; // 40px
 		} else {
 			// その他の大きなコンポーネント：幅4グリッド（80px）、高さ6グリッド（120px）
 			targetWidth = gridSize * 4;  // 80px
@@ -134,38 +167,23 @@ export class SVGManager {
 		// アスペクト比を保持して、どちらか小さい方を採用
 		const calculatedScale = Math.min(scaleX, scaleY);
 
-		console.log(`📊 Scale details: width=${width}, height=${height}`);
-		console.log(`📊 Target: width=${targetWidth}, height=${targetHeight}`);
-		console.log(`📊 Calculated scales: scaleX=${scaleX}, scaleY=${scaleY}, final=${calculatedScale}`);
-
 		return calculatedScale;
-	}	/**
+	}/**
 	 * MOSトランジスタ用のスケール計算（グリッドサイズ20pxに基づく）
-	 */
-	private calculateMosScale(svgElement: SVGSVGElement, baseScale: number): number {
+	 */	private calculateMosScale(svgElement: SVGSVGElement, baseScale: number): number {
 		const viewBox = svgElement.getAttribute('viewBox');
-		console.log(`🔌 calculateMosScale: viewBox="${viewBox}", baseScale=${baseScale}`);
 
 		if (!viewBox) {
-			console.log(`⚠️ No viewBox found, returning baseScale=${baseScale}`);
 			return baseScale;
 		}
-		const [, , width, height] = viewBox.split(' ').map(Number);
+		const [, , , height] = viewBox.split(' ').map(Number);
 		const gridSize = 20; // グリッドサイズ
 
-		// MOSトランジスタ：高さ6グリッド（120px）を優先して計算
-		// SVGの元比率140mm:200mm（幅:高さ = 0.7:1）を考慮
-		const targetHeight = gridSize * 6; // 120px（6グリッド）
+		// MOSトランジスタ：高さ4グリッド（80px）に制限
+		const targetHeight = gridSize * 4; // 80px（4グリッド）
 
-		// 高さを基準にスケールを計算
+		// 高さを基準にスケールを計算（4グリッドに制限）
 		const calculatedScale = targetHeight / height;
-
-		// 計算された幅を確認（参考値）
-		const resultingWidth = width * calculatedScale;
-		console.log(`🔌 MOS Scale details: width=${width}, height=${height}`);
-		console.log(`🔌 Target height: ${targetHeight}px (6 grids)`);
-		console.log(`🔌 Calculated scale: ${calculatedScale}`);
-		console.log(`🔌 Resulting width: ${resultingWidth}px (${(resultingWidth / gridSize).toFixed(1)} grids)`);
 
 		return calculatedScale;
 	}

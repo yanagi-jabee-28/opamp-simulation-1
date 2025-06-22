@@ -39,22 +39,17 @@ export class PreviewManager {
 		if (componentType) {
 			this.preloadSvgContent(componentType);
 		}
-	}
-	/**
+	}	/**
 	 * プレビューを同期的に更新（高速）
 	 */
 	updatePreviewSync(e: MouseEvent): void {
 		if (!this.activeComponentType || this.isUpdating) return;
 
 		const point = this.gridManager.getSnappedSvgPosition(e);
-
 		// 既にプレビューが存在する場合は位置のみ更新
 		if (this.previewElement) {
-			// 既存のスケールを保持しながら位置のみ更新
-			const existingTransform = this.previewElement.getAttribute('transform') || '';
-			const scaleMatch = existingTransform.match(/scale\([^)]+\)/);
-			const scaleTransform = scaleMatch ? scaleMatch[0] : '';
-			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y}) ${scaleTransform}`);
+			// プレビューは位置のみのtransformを設定
+			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y})`);
 			return;
 		}
 
@@ -73,23 +68,19 @@ export class PreviewManager {
 			const definition = this.componentRegistry.getDefinition(this.activeComponentType);
 			if (!definition) return;
 
-			const point = this.gridManager.getSnappedSvgPosition(e);
+			const point = this.gridManager.getSnappedSvgPosition(e);			// 既存のプレビューを削除
+			this.hidePreview();
 
-			// 既存のプレビューを削除
-			this.hidePreview();			// SVGコンテンツを取得
+			// SVGコンテンツを取得
 			const svgText = await this.svgManager.loadSvgContent(this.activeComponentType, definition);
-			if (!svgText) return;
+			if (!svgText) return; console.log(`🔍 PreviewManager: Creating preview for ${this.activeComponentType}`);
 
-			console.log(`🔍 PreviewManager: Creating preview for ${this.activeComponentType}`);
+			// プレビュー要素を作成（シンプルなスケールのみ適用）
+			this.previewElement = this.svgManager.createPreviewElement(this.activeComponentType, svgText);
+			console.log(`🎭 Preview created with simple transform`);
 
-			// プレビュー要素を作成（統一スケール1.0を使用してグリッドベースで計算）
-			this.previewElement = this.svgManager.createPreviewElement(this.activeComponentType, svgText, 1.0);
-			console.log(`🎭 Preview scale set to: 1.0 (grid-based calculation)`);
-
-			// DOMに追加してからBBoxを取得
-			// 既存のスケールを保持しながら位置を設定
-			const existingTransform = this.previewElement.getAttribute('transform') || '';
-			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y}) ${existingTransform}`);
+			// プレビュー用に位置のみのtransformを設定（SVGの内部transformは無視）
+			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y})`);
 			this.canvas.appendChild(this.previewElement);
 
 			// プレビューサイズ情報をデバッグ出力（DOM追加後）
