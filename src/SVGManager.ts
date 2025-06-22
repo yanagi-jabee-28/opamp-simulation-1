@@ -60,9 +60,7 @@ export class SVGManager {
 		this.elementCache.set(cacheKey, svgGroup.cloneNode(true) as SVGGElement);
 
 		return svgGroup;
-	}
-
-	/**
+	}	/**
 	 * プレビュー用の要素を作成（軽量版）
 	 */
 	createPreviewElement(componentType: ComponentType, svgText: string): SVGGElement {
@@ -74,7 +72,8 @@ export class SVGManager {
 			return cloned;
 		}
 
-		const element = this.createSvgElement(componentType, svgText, 0.4);
+		// プレビュー用の専用要素を作成（実際のコンポーネントと同じスケール）
+		const element = this.createSvgElement(componentType, svgText, 1.0);
 		element.classList.add('component-preview');
 
 		// プレビューキャッシュに保存
