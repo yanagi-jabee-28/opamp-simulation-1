@@ -40,7 +40,6 @@ export class PreviewManager {
 			this.preloadSvgContent(componentType);
 		}
 	}
-
 	/**
 	 * プレビューを同期的に更新（高速）
 	 */
@@ -51,14 +50,17 @@ export class PreviewManager {
 
 		// 既にプレビューが存在する場合は位置のみ更新
 		if (this.previewElement) {
-			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y})`);
+			// 既存のスケールを保持しながら位置のみ更新
+			const existingTransform = this.previewElement.getAttribute('transform') || '';
+			const scaleMatch = existingTransform.match(/scale\([^)]+\)/);
+			const scaleTransform = scaleMatch ? scaleMatch[0] : '';
+			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y}) ${scaleTransform}`);
 			return;
 		}
 
 		// プレビューが存在しない場合は非同期で作成
 		this.updatePreviewAsync(e);
 	}
-
 	/**
 	 * プレビューを非同期で更新（初回作成時）
 	 */
@@ -78,12 +80,28 @@ export class PreviewManager {
 
 			// SVGコンテンツを取得
 			const svgText = await this.svgManager.loadSvgContent(this.activeComponentType, definition);
-			if (!svgText) return;
+			if (!svgText) return; console.log(`🔍 PreviewManager: Creating preview for ${this.activeComponentType}`);			// プレビュー要素を作成（デフォルトスケール0.4を使用）
+			this.previewElement = this.svgManager.createPreviewElement(this.activeComponentType, svgText, 0.4);
+			console.log(`🎭 Preview scale set to: 0.4`);
 
-			// プレビュー要素を作成
-			this.previewElement = this.svgManager.createPreviewElement(this.activeComponentType, svgText);
-			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y})`);
+			// DOMに追加してからBBoxを取得
+			// 既存のスケールを保持しながら位置を設定
+			const existingTransform = this.previewElement.getAttribute('transform') || '';
+			this.previewElement.setAttribute('transform', `translate(${point.x}, ${point.y}) ${existingTransform}`);
 			this.canvas.appendChild(this.previewElement);
+
+			// プレビューサイズ情報をデバッグ出力（DOM追加後）
+			const bbox = this.previewElement.getBBox();
+			const transform = this.previewElement.getAttribute('transform');
+			console.log(`👁️ Preview element - BBox: width=${bbox.width}, height=${bbox.height}`);
+			console.log(`🎯 Preview transform: ${transform}`);
+			console.log(`📐 Preview element tag: ${this.previewElement.tagName}, class: ${this.previewElement.className}`);			// 子要素の情報も出力
+			const childElements = this.previewElement.children;
+			console.log(`🔍 Preview child elements count: ${childElements.length}`);
+			for (let i = 0; i < childElements.length; i++) {
+				const child = childElements[i];
+				console.log(`  Child ${i}: ${child.tagName}, transform: ${child.getAttribute('transform')}`);
+			}
 
 		} finally {
 			this.isUpdating = false;

@@ -31,6 +31,7 @@ export class CircuitComponent {
 	} private async loadSVGContent(group: SVGGElement): Promise<void> {
 		try {
 			debugSVG(`Loading SVG: ${this.definition.svgPath}`);
+			debugSVG(`Component scale: ${this.data.scale}`);
 
 			// SVGManagerを使用してSVGコンテンツを取得
 			const svgText = await this.svgManager.loadSvgContent(this.data.type, this.definition);
@@ -38,11 +39,22 @@ export class CircuitComponent {
 				throw new Error('Failed to load SVG content');
 			}
 
+			debugSVG(`SVG text length: ${svgText.length} characters`);
+
 			// SVGManagerを使用して要素を作成
 			const svgElement = this.svgManager.createSvgElement(this.data.type, svgText, this.data.scale);
+			console.log(`🏭 CircuitComponent: Creating actual component with scale=${this.data.scale}`);
 
 			// 作成された要素をグループに追加
 			group.appendChild(svgElement);
+
+			// サイズ情報をデバッグ出力（DOM追加後）
+			const bbox = svgElement.getBBox();
+			const transform = svgElement.getAttribute('transform');
+			debugSVG(`Created SVG element - BBox: width=${bbox.width}, height=${bbox.height}`);
+			debugSVG(`Transform attribute: ${transform}`);
+			console.log(`🏭 Actual component - BBox: width=${bbox.width}, height=${bbox.height}`);
+			console.log(`🎯 Actual component transform: ${transform}`);
 
 			// 位置を更新
 			this.updatePosition();
