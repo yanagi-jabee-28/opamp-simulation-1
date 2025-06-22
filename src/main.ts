@@ -59,9 +59,7 @@ class App {
 						deleteButton.click();
 					}
 				}
-			}
-
-			// Escape でコンポーネント選択をクリア
+			}			// Escape でコンポーネント選択をクリア
 			if (e.key === 'Escape') {
 				const selectedItems = document.querySelectorAll('.component-item.selected');
 				selectedItems.forEach(item => item.classList.remove('selected'));
@@ -69,6 +67,8 @@ class App {
 				if (canvas) {
 					canvas.style.cursor = 'default';
 				}
+				// プレビューもクリア（グローバルイベントを発火）
+				document.dispatchEvent(new CustomEvent('clearPreview'));
 			}
 		});
 	}

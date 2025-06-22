@@ -10,7 +10,8 @@ export class CircuitCanvas {
 	private nextId = 1;
 	private isPlacing = false; // 配置中フラグを追加
 	private lastClickTime = 0; // 最後のクリック時刻を追加
-
+	private previewElement: SVGGElement | null = null; // プレビュー要素
+	private activeComponentType: ComponentType | null = null; // 選択中のコンポーネント
 	constructor(canvasId: string) {
 		this.canvas = document.getElementById(canvasId) as unknown as SVGSVGElement;
 		if (!this.canvas) {
@@ -21,6 +22,8 @@ export class CircuitCanvas {
 		this.componentDefinitions = this.initializeComponentDefinitions();
 		this.setupEventListeners();
 		this.updateGrid();
+		// すべてのSVGを事前ロード
+		this.preloadAllSvgs();
 	}
 
 	private initializeComponentDefinitions(): Map<ComponentType, ComponentDefinition> {
@@ -64,11 +67,15 @@ export class CircuitCanvas {
 		return definitions;
 	} private setupEventListeners(): void {
 		debugCanvas('Setting up event listeners');
-
 		// ドラッグ&ドロップの処理
 		document.addEventListener('componentRemoved', (e) => {
 			const customEvent = e as CustomEvent;
 			this.removeComponent(customEvent.detail);
+		});
+
+		// プレビュークリアイベント
+		document.addEventListener('clearPreview', () => {
+			this.setActiveComponent(null);
 		});
 
 		// キャンバスクリックでコンポーネントをドロップ
@@ -106,6 +113,16 @@ export class CircuitCanvas {
 				this.isPlacing = false;
 				debugEvents('isPlacing reset to false immediately');
 			}
+		});		// マウス移動でプレビュー表示（即座に反応）
+		this.canvas.addEventListener('mousemove', (e) => {
+			if (this.activeComponentType && !this.isPlacing) {
+				this.updatePreviewSync(e);
+			}
+		});
+
+		// マウスが離れたらプレビューを非表示
+		this.canvas.addEventListener('mouseleave', () => {
+			this.hidePreview();
 		});
 
 		// グリッド設定の変更
@@ -132,7 +149,7 @@ export class CircuitCanvas {
 
 		componentItems.forEach(item => {
 			item.addEventListener('click', () => {
-				const componentType = item.getAttribute('data-component');
+				const componentType = item.getAttribute('data-component') as ComponentType;
 				debugEvents(`Component item clicked: ${componentType}`);
 				debugEvents(`isPlacing status: ${this.isPlacing}`);
 
@@ -148,6 +165,10 @@ export class CircuitCanvas {
 				item.classList.add('selected');
 				// キャンバスの状態を変更
 				this.canvas.style.cursor = 'crosshair';
+
+				// アクティブコンポーネントを設定（プレビュー用）
+				this.setActiveComponent(componentType);
+
 				debugEvents('Component selected, cursor changed to crosshair');
 			});
 		});
@@ -174,7 +195,6 @@ export class CircuitCanvas {
 		debugEvents('getActiveComponent - No component selected');
 		return null;
 	}
-
 	private clearActiveComponent(): void {
 		const selectedItems = document.querySelectorAll('.component-item.selected');
 		debugEvents(`clearActiveComponent - Found selected items: ${selectedItems.length}`);
@@ -182,34 +202,31 @@ export class CircuitCanvas {
 			item.classList.remove('selected');
 		});
 		this.canvas.style.cursor = 'default';
+
+		// アクティブコンポーネントとプレビューをクリア
+		this.setActiveComponent(null);
+
 		debugEvents('Active component cleared');
-	}	private getMousePosition(e: MouseEvent): Point {
+	} private getMousePosition(e: MouseEvent): Point {
 		const rect = this.canvas.getBoundingClientRect();
 		const x = e.clientX - rect.left;
 		const y = e.clientY - rect.top;
-
-		debugEvents(`Raw mouse position: client(${e.clientX}, ${e.clientY}), canvas offset(${rect.left}, ${rect.top}), relative(${x}, ${y})`);
 
 		// viewBoxを取得してスケールを計算
 		const viewBox = this.canvas.viewBox.baseVal;
 		const scaleX = viewBox.width / rect.width;
 		const scaleY = viewBox.height / rect.height;
 
-		debugEvents(`ViewBox: ${viewBox.width}x${viewBox.height}, Canvas: ${rect.width}x${rect.height}, Scale: ${scaleX}x${scaleY}`);
-
 		// SVG座標系に変換
 		const svgX = x * scaleX + viewBox.x;
 		const svgY = y * scaleY + viewBox.y;
-
-		debugEvents(`SVG coordinates: (${svgX}, ${svgY})`);
 
 		// グリッドにスナップ
 		const snappedPoint = {
 			x: this.snapToGrid(svgX),
 			y: this.snapToGrid(svgY)
 		};
-		
-		debugEvents(`Final snapped position: (${snappedPoint.x}, ${snappedPoint.y})`);
+
 		return snappedPoint;
 	}
 
@@ -320,5 +337,183 @@ export class CircuitCanvas {
 			console.error('インポートに失敗しました:', error);
 			alert('ファイルの形式が正しくありません。');
 		}
+	}
+	// プレビュー関連のメソッド
+	private previewSvgCache: Map<ComponentType, string> = new Map(); // SVGキャッシュ
+	private isUpdatingPreview = false; // プレビュー更新中フラグ
+
+	private async loadSvgContent(componentType: ComponentType): Promise<string | null> {
+		// キャッシュから取得
+		if (this.previewSvgCache.has(componentType)) {
+			return this.previewSvgCache.get(componentType) || null;
+		}
+
+		const definition = this.componentDefinitions.get(componentType);
+		if (!definition) return null;
+
+		try {
+			const response = await fetch(definition.svgPath);
+			const svgText = await response.text();
+			// キャッシュに保存
+			this.previewSvgCache.set(componentType, svgText);
+			return svgText;
+		} catch (error) {
+			console.error(`Failed to load SVG for ${componentType}:`, error);
+			return null;
+		}
+	}
+
+	private createPreviewElement(svgText: string): SVGGElement {
+		const parser = new DOMParser();
+		const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+		const svgElement = svgDoc.documentElement;
+
+		// プレビュー用のグループを作成
+		const previewGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+		previewGroup.classList.add('component-preview');
+
+		// SVGの viewBox を取得してスケールを計算
+		const viewBox = svgElement.getAttribute('viewBox');
+		let scale = 0.4; // デフォルトスケール
+		if (viewBox) {
+			const [, , width, height] = viewBox.split(' ').map(Number);
+			const targetSize = 80;
+			const scaleX = targetSize / width;
+			const scaleY = targetSize / height;
+			scale = Math.min(scaleX, scaleY, 0.4);
+		}
+
+		// metadata, defs, namedviewなどの非表示要素を除く有効な子要素のみを取得
+		const validChildren = Array.from(svgElement.children).filter(child => {
+			const tagName = child.tagName.toLowerCase();
+			return tagName !== 'metadata' && tagName !== 'defs' &&
+				tagName !== 'namedview' && tagName !== 'sodipodi:namedview' &&
+				tagName !== 'title' && tagName !== 'desc';
+		});
+
+		// SVGの内容をクローンして追加
+		const svgGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+		if (validChildren.length > 0) {
+			validChildren.forEach((child) => {
+				const clonedElement = child.cloneNode(true) as SVGElement;
+				svgGroup.appendChild(clonedElement);
+			});
+		} else {
+			// フォールバック: 表示可能な要素を直接検索
+			const visibleElements = svgElement.querySelectorAll('path, rect, circle, line, polyline, polygon, ellipse, g');
+			visibleElements.forEach((element) => {
+				if (element.parentElement === svgElement) {
+					const clonedElement = element.cloneNode(true) as SVGElement;
+					svgGroup.appendChild(clonedElement);
+				}
+			});
+		}
+
+		// スケールを適用
+		svgGroup.setAttribute('transform', `scale(${scale})`);
+		previewGroup.appendChild(svgGroup);
+
+		return previewGroup;
+	}
+	private updatePreviewSync(e: MouseEvent): void {
+		if (!this.activeComponentType || this.isUpdatingPreview) return;
+
+		const point = this.getMousePosition(e);
+
+		// グリッドにスナップした位置に配置
+		const snappedPoint = {
+			x: this.snapToGrid(point.x),
+			y: this.snapToGrid(point.y)
+		};
+
+		// 既にプレビューが存在し、キャッシュされたSVGがある場合は位置のみ更新
+		if (this.previewElement && this.previewSvgCache.has(this.activeComponentType)) {
+			this.previewElement.setAttribute('transform', `translate(${snappedPoint.x}, ${snappedPoint.y})`);
+			return;
+		}
+
+		// プレビューが存在しない場合は非同期で作成
+		if (!this.previewElement) {
+			this.updatePreviewAsync(e);
+		}
+	}
+
+	private async updatePreviewAsync(e: MouseEvent): Promise<void> {
+		if (!this.activeComponentType || this.isUpdatingPreview) return;
+
+		this.isUpdatingPreview = true;
+
+		try {
+			const point = this.getMousePosition(e);
+
+			// 既存のプレビューを削除
+			this.hidePreview();
+
+			// SVGコンテンツを取得（キャッシュ使用）
+			const svgText = await this.loadSvgContent(this.activeComponentType);
+			if (!svgText) return;
+
+			// プレビュー要素を作成
+			this.previewElement = this.createPreviewElement(svgText);
+
+			// グリッドにスナップした位置に配置
+			const snappedPoint = {
+				x: this.snapToGrid(point.x),
+				y: this.snapToGrid(point.y)
+			};
+
+			this.previewElement.setAttribute('transform', `translate(${snappedPoint.x}, ${snappedPoint.y})`);
+			this.canvas.appendChild(this.previewElement);
+
+		} finally {
+			this.isUpdatingPreview = false;
+		}
+	}
+
+	private hidePreview(): void {
+		// 既存のプレビューをすべて削除（念のため）
+		const existingPreviews = this.canvas.querySelectorAll('.component-preview');
+		existingPreviews.forEach(preview => preview.remove());
+
+		if (this.previewElement) {
+			this.previewElement.remove();
+			this.previewElement = null;
+		}
+	}
+	private setActiveComponent(componentType: ComponentType | null): void {
+		this.activeComponentType = componentType;
+
+		// プレビューをクリア
+		this.hidePreview();
+
+		// 新しいコンポーネントが選択された場合、SVGを事前にロード
+		if (componentType) {
+			this.preloadSvgContent(componentType);
+		}
+	}
+
+	private async preloadSvgContent(componentType: ComponentType): Promise<void> {
+		// 既にキャッシュされている場合はスキップ
+		if (this.previewSvgCache.has(componentType)) return;
+
+		const definition = this.componentDefinitions.get(componentType);
+		if (!definition) return;
+
+		try {
+			const response = await fetch(definition.svgPath);
+			const svgText = await response.text();
+			this.previewSvgCache.set(componentType, svgText);
+		} catch (error) {
+			console.error(`Failed to preload SVG for ${componentType}:`, error);
+		}
+	}
+
+	private async preloadAllSvgs(): Promise<void> {
+		const componentTypes: ComponentType[] = ['resistor', 'capacitor', 'inductor', 'nmos', 'pmos'];
+
+		// 並列でSVGをロード
+		const loadPromises = componentTypes.map(type => this.preloadSvgContent(type));
+		await Promise.all(loadPromises);
+		debugCanvas('All SVGs preloaded for instant preview');
 	}
 }
