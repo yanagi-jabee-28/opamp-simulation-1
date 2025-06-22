@@ -4,81 +4,18 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>回路素子配置エディタ</title>
-	<link rel="icon"
-		href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
-	<link rel="stylesheet" href="./src/styles.css">
+	<title>回路編集アプリ</title>
+	<link rel="stylesheet" href="src/styles.css">
 </head>
 
 <body>
 	<div id="app">
-		<header>
-			<h1>回路素子配置エディタ</h1>
-		</header>
-
-		<div class="container">
-			<div class="sidebar">
-				<h3>コンポーネント</h3>
-				<div class="component-palette">
-					<div class="component-item" data-component="resistor">
-						<img src="./svg-components/resistor2.svg" alt="抵抗" />
-						<span>抵抗</span>
-					</div>
-					<div class="component-item" data-component="capacitor">
-						<img src="./svg-components/capacitor2.svg" alt="コンデンサ" />
-						<span>コンデンサ</span>
-					</div>
-					<div class="component-item" data-component="inductor">
-						<img src="./svg-components/inductor2.svg" alt="インダクタ" />
-						<span>インダクタ</span>
-					</div>
-					<div class="component-item" data-component="nmos">
-						<img src="./svg-components/nmos-simple2.svg" alt="NMOS" />
-						<span>NMOS</span>
-					</div>
-					<div class="component-item" data-component="pmos">
-						<img src="./svg-components/pmos-simple2.svg" alt="PMOS" />
-						<span>PMOS</span>
-					</div>
-				</div>
-
-				<div class="controls">
-					<h3>操作</h3>
-					<button id="clear-btn">全削除</button>
-					<button id="export-btn">エクスポート</button>
-				</div>
-			</div>
-
-			<div class="main-content">
-				<div class="toolbar"> <label>
-						グリッドサイズ:
-						<select id="grid-size">
-							<option value="20" selected>20px</option>
-							<option value="30">30px</option>
-							<option value="40">40px</option>
-							<option value="50">50px</option>
-						</select>
-					</label>
-					<label>
-						<input type="checkbox" id="show-grid" checked> グリッド表示
-					</label>
-				</div>
-
-				<div class="canvas-container">
-					<svg id="canvas" viewBox="0 0 1200 800">
-						<defs>
-							<pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-								<path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="1" />
-							</pattern>
-						</defs>
-						<rect width="100%" height="100%" fill="url(#grid)" class="grid-background" />
-					</svg>
-				</div>
-			</div>
+		<div id="component-palette">
+			<h2>部品</h2>
 		</div>
+		<div id="circuit-canvas"></div>
 	</div>
-
-	<script type="module" src="./src/main.ts"></script>
+	<script type="module" src="/src/main.ts"></script>
 </body>
 
 </html>
