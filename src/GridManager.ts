@@ -4,7 +4,7 @@ import { Point, GridSettings } from './types.js';
  * グリッド関連の機能を管理するクラス
  */
 export class GridManager {
-	private settings: GridSettings = { size: 30, visible: true };
+	private settings: GridSettings = { size: 20, visible: true };
 	private canvas: SVGSVGElement;
 
 	constructor(canvas: SVGSVGElement) {

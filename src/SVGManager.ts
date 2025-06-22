@@ -108,21 +108,20 @@ export class SVGManager {
 			console.log(`⚠️ No viewBox found, returning baseScale=${baseScale}`);
 			return baseScale;
 		}
-
 		const [, , width, height] = viewBox.split(' ').map(Number);
-		const gridSize = 30; // グリッドサイズ
+		const gridSize = 20; // グリッドサイズ
 
 		// コンポーネントタイプ別の目標サイズ（グリッド単位）
 		let targetWidth, targetHeight;
 
 		if (height < 80) {
-			// インダクタ（高さが小さい）：幅4グリッド（120px）、高さ1.5グリッド（45px）
-			targetWidth = gridSize * 4;  // 120px
-			targetHeight = gridSize * 1.5; // 45px
+			// インダクタ（高さが小さい）：幅6グリッド（120px）、高さ2グリッド（40px）
+			targetWidth = gridSize * 6;  // 120px
+			targetHeight = gridSize * 2; // 40px
 		} else {
-			// 抵抗器・コンデンサ：幅4グリッド（120px）、高さ2グリッド（60px）
-			targetWidth = gridSize * 4;  // 120px
-			targetHeight = gridSize * 2; // 60px
+			// 抵抗器・コンデンサ：幅6グリッド（120px）、高さ3グリッド（60px）
+			targetWidth = gridSize * 6;  // 120px
+			targetHeight = gridSize * 3; // 60px
 		}
 
 		const scaleX = targetWidth / width;
@@ -147,22 +146,20 @@ export class SVGManager {
 			console.log(`⚠️ No viewBox found, returning baseScale=${baseScale}`);
 			return baseScale;
 		}
-
 		const [, , width, height] = viewBox.split(' ').map(Number);
-		const gridSize = 30; // グリッドサイズ
+		const gridSize = 20; // グリッドサイズ
 
-		// MOSトランジスタ：高さ4グリッド（120px）を優先して計算
+		// MOSトランジスタ：高さ6グリッド（120px）を優先して計算
 		// SVGの元比率140mm:200mm（幅:高さ = 0.7:1）を考慮
-		const targetHeight = gridSize * 4; // 120px（4グリッド）
+		const targetHeight = gridSize * 6; // 120px（6グリッド）
 
 		// 高さを基準にスケールを計算
 		const calculatedScale = targetHeight / height;
 
 		// 計算された幅を確認（参考値）
 		const resultingWidth = width * calculatedScale;
-
 		console.log(`🔌 MOS Scale details: width=${width}, height=${height}`);
-		console.log(`🔌 Target height: ${targetHeight}px (4 grids)`);
+		console.log(`🔌 Target height: ${targetHeight}px (6 grids)`);
 		console.log(`🔌 Calculated scale: ${calculatedScale}`);
 		console.log(`🔌 Resulting width: ${resultingWidth}px (${(resultingWidth / gridSize).toFixed(1)} grids)`);
 

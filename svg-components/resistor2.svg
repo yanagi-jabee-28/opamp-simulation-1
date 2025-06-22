@@ -3,8 +3,8 @@
 
 <svg
    width="199.99998mm"
-   height="91.806519mm"
-   viewBox="0 0 199.99998 91.806519"
+   height="100.00038mm"
+   viewBox="0 0 199.99998 100.00038"
    version="1.1"
    id="svg1"
    inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
@@ -28,7 +28,7 @@
      showgrid="true"
      inkscape:zoom="0.89260825"
      inkscape:cx="28.567964"
-     inkscape:cy="-59.936708"
+     inkscape:cy="-54.335146"
      inkscape:window-width="2880"
      inkscape:window-height="1694"
      inkscape:window-x="-11"
@@ -38,8 +38,8 @@
     <inkscape:grid
        id="grid1"
        units="mm"
-       originx="49.999997"
-       originy="5.9032536"
+       originx="49.999996"
+       originy="7.2253404"
        spacingx="0.99999998"
        spacingy="1"
        empcolor="#0099e5"
@@ -58,10 +58,10 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"
-     transform="translate(50,5.9032532)">
+     transform="translate(50,7.2253399)">
     <path
        style="fill:none;stroke:#000000;stroke-width:10;stroke-linejoin:miter;stroke-dasharray:none"
-       d="m 149.99999,40.000005 h -40 l -10,-30.062308 -20,60.124616 -20,-60.124616 L 40,70.062313 20,9.937697 0,70.062313 -10,40.000005 h -40"
+       d="m 149.99999,42.77485 h -40 l -10,-32.8371539 -20,65.6743079 -20,-65.6743079 L 40,75.612004 20,9.9376961 0,75.612004 -10,42.77485 h -40"
        id="path1" />
   </g>
   <metadata
