@@ -29,7 +29,7 @@ export class SVGManager {
 		}
 	}	/**
 	 * SVGテキストから使用可能な要素を作成（キャッシュ使用）
-	 */	createSvgElement(componentType: ComponentType, svgText: string, scale: number = 0.4): SVGGElement {
+	 */	createSvgElement(componentType: ComponentType, svgText: string, scale: number = 1.0): SVGGElement {
 		console.log(`🔧 SVGManager.createSvgElement: ${componentType}, scale=${scale}`);
 
 		// キャッシュは使わず、常に新しい要素を作成して正確なスケール計算を行う
@@ -40,8 +40,8 @@ export class SVGManager {
 		// SVGグループを作成
 		const svgGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
 
-		// コンポーネントタイプ別のスケール調整
-		let adjustedScale = scale;
+		// コンポーネントタイプ別のスケール調整（baseScaleは無視して、グリッドベースで計算）
+		let adjustedScale;
 		if (componentType === 'nmos' || componentType === 'pmos') {
 			adjustedScale = this.calculateMosScale(svgElement, scale);
 		} else {
@@ -61,8 +61,7 @@ export class SVGManager {
 		return svgGroup;
 	}/**
 	 * プレビュー用の要素を作成（実配置と同じスケール使用）
-	 */
-	createPreviewElement(componentType: ComponentType, svgText: string, scale: number = 0.4): SVGGElement {
+	 */	createPreviewElement(componentType: ComponentType, svgText: string, scale: number = 1.0): SVGGElement {
 		console.log(`🎭 Creating preview element for ${componentType} with scale=${scale}`);
 
 		// プレビューはキャッシュを使わず、常に実配置と同じ計算を行う
@@ -99,7 +98,7 @@ export class SVGManager {
 
 		return group;
 	}	/**
-	 * SVGの適切なスケールを計算
+	 * SVGの適切なスケールを計算（グリッドサイズ30pxに基づく統一的な計算）
 	 */
 	private calculateScale(svgElement: SVGSVGElement, baseScale: number): number {
 		const viewBox = svgElement.getAttribute('viewBox');
@@ -111,28 +110,34 @@ export class SVGManager {
 		}
 
 		const [, , width, height] = viewBox.split(' ').map(Number);
+		const gridSize = 30; // グリッドサイズ
 
-		// MOSトランジスタの場合は特別なターゲットサイズを使用
-		// グリッドサイズ30に合わせて、90ピクセル（3グリッド）を目標とする
-		let targetSize = 80; // デフォルト
-		if (width > 130 && width < 150 && height > 190 && height < 210) {
-			// MOSトランジスタの寸法（約140×200）を検出
-			targetSize = 90; // グリッド3つ分
-			console.log(`🔌 MOS transistor detected, using targetSize=${targetSize}`);
+		// コンポーネントタイプ別の目標サイズ（グリッド単位）
+		let targetWidth, targetHeight;
+
+		if (height < 80) {
+			// インダクタ（高さが小さい）：幅4グリッド（120px）、高さ1.5グリッド（45px）
+			targetWidth = gridSize * 4;  // 120px
+			targetHeight = gridSize * 1.5; // 45px
+		} else {
+			// 抵抗器・コンデンサ：幅4グリッド（120px）、高さ2グリッド（60px）
+			targetWidth = gridSize * 4;  // 120px
+			targetHeight = gridSize * 2; // 60px
 		}
 
-		const scaleX = targetSize / width;
-		const scaleY = targetSize / height;
-		const calculatedScale = Math.min(scaleX, scaleY, baseScale);
+		const scaleX = targetWidth / width;
+		const scaleY = targetHeight / height;
 
-		console.log(`📊 Scale details: width=${width}, height=${height}, targetSize=${targetSize}`);
+		// アスペクト比を保持して、どちらか小さい方を採用
+		const calculatedScale = Math.min(scaleX, scaleY);
+
+		console.log(`📊 Scale details: width=${width}, height=${height}`);
+		console.log(`📊 Target: width=${targetWidth}, height=${targetHeight}`);
 		console.log(`📊 Calculated scales: scaleX=${scaleX}, scaleY=${scaleY}, final=${calculatedScale}`);
 
 		return calculatedScale;
-	}
-
-	/**
-	 * MOSトランジスタ用の特別なスケール計算
+	}	/**
+	 * MOSトランジスタ用のスケール計算（グリッドサイズ30pxに基づく）
 	 */
 	private calculateMosScale(svgElement: SVGSVGElement, baseScale: number): number {
 		const viewBox = svgElement.getAttribute('viewBox');
@@ -144,19 +149,22 @@ export class SVGManager {
 		}
 
 		const [, , width, height] = viewBox.split(' ').map(Number);
+		const gridSize = 30; // グリッドサイズ
 
-		// グリッドサイズ30に合わせてMOSトランジスタを調整
-		// 幅は60ピクセル（2グリッド）、高さは120ピクセル（4グリッド）を目標
-		const targetWidth = 60;  // 2グリッド
-		const targetHeight = 120; // 4グリッド
+		// MOSトランジスタ：高さ4グリッド（120px）を優先して計算
+		// SVGの元比率140mm:200mm（幅:高さ = 0.7:1）を考慮
+		const targetHeight = gridSize * 4; // 120px（4グリッド）
 
-		const scaleX = targetWidth / width;
-		const scaleY = targetHeight / height;
-		const calculatedScale = Math.min(scaleX, scaleY);
+		// 高さを基準にスケールを計算
+		const calculatedScale = targetHeight / height;
+
+		// 計算された幅を確認（参考値）
+		const resultingWidth = width * calculatedScale;
 
 		console.log(`🔌 MOS Scale details: width=${width}, height=${height}`);
-		console.log(`🔌 Target: width=${targetWidth}, height=${targetHeight}`);
-		console.log(`🔌 Calculated scales: scaleX=${scaleX}, scaleY=${scaleY}, final=${calculatedScale}`);
+		console.log(`🔌 Target height: ${targetHeight}px (4 grids)`);
+		console.log(`🔌 Calculated scale: ${calculatedScale}`);
+		console.log(`🔌 Resulting width: ${resultingWidth}px (${(resultingWidth / gridSize).toFixed(1)} grids)`);
 
 		return calculatedScale;
 	}

@@ -76,13 +76,15 @@ export class PreviewManager {
 			const point = this.gridManager.getSnappedSvgPosition(e);
 
 			// 既存のプレビューを削除
-			this.hidePreview();
-
-			// SVGコンテンツを取得
+			this.hidePreview();			// SVGコンテンツを取得
 			const svgText = await this.svgManager.loadSvgContent(this.activeComponentType, definition);
-			if (!svgText) return; console.log(`🔍 PreviewManager: Creating preview for ${this.activeComponentType}`);			// プレビュー要素を作成（デフォルトスケール0.4を使用）
-			this.previewElement = this.svgManager.createPreviewElement(this.activeComponentType, svgText, 0.4);
-			console.log(`🎭 Preview scale set to: 0.4`);
+			if (!svgText) return;
+
+			console.log(`🔍 PreviewManager: Creating preview for ${this.activeComponentType}`);
+
+			// プレビュー要素を作成（統一スケール1.0を使用してグリッドベースで計算）
+			this.previewElement = this.svgManager.createPreviewElement(this.activeComponentType, svgText, 1.0);
+			console.log(`🎭 Preview scale set to: 1.0 (grid-based calculation)`);
 
 			// DOMに追加してからBBoxを取得
 			// 既存のスケールを保持しながら位置を設定

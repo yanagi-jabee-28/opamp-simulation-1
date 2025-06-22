@@ -186,14 +186,13 @@ export class CircuitCanvas {
 		if (!definition) {
 			console.error(`Definition not found for type:`, type);
 			return;
-		}
-		const componentId = `component_${this.nextId++}`;
+		} const componentId = `component_${this.nextId++}`;
 		const componentData: ComponentData = {
 			id: componentId,
 			type,
 			position: this.gridManager.snapPointToGrid(position),
 			rotation: 0,
-			scale: 0.4  // プレビューと同じスケールを使用
+			scale: 1.0  // 統一スケール（グリッドベースで計算）
 		};
 
 		debugCanvas(`Creating component with data:`, componentData);
