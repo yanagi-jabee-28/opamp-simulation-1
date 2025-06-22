@@ -10,7 +10,20 @@ class App {
 		this.canvas = new CircuitCanvas('canvas');
 		this.setupFileImport();
 		this.setupKeyboardShortcuts();
+		this.setupPerformanceMonitoring();
 		debugUI('App initialized successfully');
+	}
+
+	private setupPerformanceMonitoring(): void {
+		// パフォーマンス情報を定期的にログ出力
+		setInterval(() => {
+			const info = this.canvas.getManagerInfo();
+			console.log('📊 Performance Info:', {
+				svgCacheSize: info.svgCache,
+				gridSize: info.gridInfo.size,
+				componentsCount: info.componentsCount
+			});
+		}, 30000); // 30秒ごと
 	}
 
 	private setupFileImport(): void {

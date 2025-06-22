@@ -1,13 +1,16 @@
 import { ComponentData, Point, ComponentDefinition } from './types.js';
 import { debugComponent, debugSVG, debugPositioning } from './debug.js';
+import { SVGManager } from './SVGManager.js';
 
 export class CircuitComponent {
 	private element: SVGGElement;
 	private deleteButton: SVGForeignObjectElement;
+	private svgManager: SVGManager;
 
-	constructor(private data: ComponentData, private definition: ComponentDefinition) {
+	constructor(private data: ComponentData, private definition: ComponentDefinition, svgManager?: SVGManager) {
 		debugComponent(`Creating CircuitComponent: ${data.type} ID: ${data.id}`);
 
+		this.svgManager = svgManager || new SVGManager(); // 再利用可能なSVGManagerを使用
 		this.element = this.createElement();
 		this.deleteButton = this.createDeleteButton();
 		this.updatePosition();
@@ -29,94 +32,28 @@ export class CircuitComponent {
 		try {
 			debugSVG(`Loading SVG: ${this.definition.svgPath}`);
 
-			const response = await fetch(this.definition.svgPath);
-			const svgText = await response.text();
-			const parser = new DOMParser();
-			const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-			const svgElement = svgDoc.documentElement;
-
-			// SVGの viewBox を取得してスケールを計算
-			const viewBox = svgElement.getAttribute('viewBox');
-			let scale = 0.4; // デフォルトスケール
-			if (viewBox) {
-				const [, , width, height] = viewBox.split(' ').map(Number);
-				// 適切なサイズに調整（最大80px程度）
-				const targetSize = 80;
-				const scaleX = targetSize / width;
-				const scaleY = targetSize / height;
-				scale = Math.min(scaleX, scaleY, 0.4) * this.data.scale;
+			// SVGManagerを使用してSVGコンテンツを取得
+			const svgText = await this.svgManager.loadSvgContent(this.data.type, this.definition);
+			if (!svgText) {
+				throw new Error('Failed to load SVG content');
 			}
 
-			// SVGの内容を取得してグループに追加
-			// SVG全体をひとつのグループとして扱う
-			const svgGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+			// SVGManagerを使用して要素を作成
+			const svgElement = this.svgManager.createSvgElement(this.data.type, svgText, this.data.scale);
 
-			// metadata, defs, namedviewなどの非表示要素を除く有効な子要素のみを取得
-			const validChildren = Array.from(svgElement.children).filter(child => {
-				const tagName = child.tagName.toLowerCase();
-				return tagName !== 'metadata' && tagName !== 'defs' &&
-					tagName !== 'namedview' && tagName !== 'sodipodi:namedview' &&
-					tagName !== 'title' && tagName !== 'desc';
-			});
+			// 作成された要素をグループに追加
+			group.appendChild(svgElement);
 
-			debugSVG(`Found ${validChildren.length} valid children to clone`);
-
-			// すべての有効な子要素を一つのグループにまとめる
-			if (validChildren.length > 0) {
-				// 各有効な子要素をクローンして追加
-				validChildren.forEach((child, index) => {
-					debugSVG(`Cloning child ${index}: ${child.tagName}`);
-					const clonedElement = child.cloneNode(true) as SVGElement;
-					svgGroup.appendChild(clonedElement);
-				});
-			} else {
-				// フォールバック: 表示可能な要素を直接検索
-				const visibleElements = svgElement.querySelectorAll('path, rect, circle, line, polyline, polygon, ellipse, g');
-				debugSVG(`Fallback: Found ${visibleElements.length} visible elements`);
-				visibleElements.forEach((element, index) => {
-					// 親がrootのSVG要素である場合のみ追加（ネストを避ける）
-					if (element.parentElement === svgElement) {
-						const clonedElement = element.cloneNode(true) as SVGElement;
-						debugSVG(`Cloning fallback element ${index}: ${element.tagName}`);
-						svgGroup.appendChild(clonedElement);
-					}
-				});
-			}
-
-			// スケールを適用
-			svgGroup.setAttribute('transform', `scale(${scale})`);
-			group.appendChild(svgGroup);
-
-			// 位置を更新（スケールは既に適用済み）
+			// 位置を更新
 			this.updatePosition();
-			debugSVG('SVG loaded successfully');
+			debugSVG('SVG loaded successfully using SVGManager');
 		} catch (error) {
 			console.error(`SVGの読み込みに失敗しました (${this.definition.svgPath}):`, error);
-			// フォールバック: 簡単な矩形を表示
-			this.createFallbackComponent(group);
+			// フォールバック: SVGManagerを使用してフォールバック要素を作成
+			const fallbackElement = this.svgManager.createFallbackElement(this.definition.name);
+			group.appendChild(fallbackElement);
 		}
-	}
-	private createFallbackComponent(group: SVGGElement): void {
-		const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-		rect.setAttribute('width', '60');
-		rect.setAttribute('height', '30');
-		rect.setAttribute('fill', '#ddd');
-		rect.setAttribute('stroke', '#999');
-		rect.setAttribute('stroke-width', '2');
-
-		const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-		text.setAttribute('x', '30');
-		text.setAttribute('y', '20');
-		text.setAttribute('text-anchor', 'middle');
-		text.setAttribute('font-size', '12');
-		text.setAttribute('fill', '#666');
-		text.textContent = this.definition.name;
-
-		group.appendChild(rect);
-		group.appendChild(text);
-	}
-
-	private createDeleteButton(): SVGForeignObjectElement {
+	} private createDeleteButton(): SVGForeignObjectElement {
 		const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
 		foreignObject.setAttribute('width', '20');
 		foreignObject.setAttribute('height', '20');
